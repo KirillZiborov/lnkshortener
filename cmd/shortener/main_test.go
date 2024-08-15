@@ -16,7 +16,7 @@ import (
 func TestServer(t *testing.T) {
 	cfg := &config.Config{
 		Address: "localhost:8080",
-		BaseURL: "http://localhost:8000",
+		BaseURL: "http://localhost:8080",
 	}
 
 	r := chi.NewRouter()
