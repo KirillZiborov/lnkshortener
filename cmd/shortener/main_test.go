@@ -7,15 +7,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServer(t *testing.T) {
+	cfg := &config.Config{
+		Address: "localhost:8080",
+		BaseURL: "http://localhost:8000",
+	}
+
 	r := chi.NewRouter()
 
-	r.Post("/", PostHandler)
+	r.Post("/", PostHandler(cfg.BaseURL))
 	r.Get("/{id}", GetHandler)
 
 	type want struct {
@@ -119,7 +125,7 @@ func TestServer(t *testing.T) {
 
 			// Проверяем, что URL был правильно сохранен в urlStore при POST-запросе
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated {
-				shortenedURL := strings.TrimPrefix(rw.Body.String(), "http://localhost:8080/")
+				shortenedURL := strings.TrimPrefix(rw.Body.String(), cfg.BaseURL+"/")
 				originalURL, exists := urlStore[shortenedURL]
 				assert.True(t, exists)
 				assert.Equal(t, tc.body, originalURL)

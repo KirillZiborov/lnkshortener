@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
 	"github.com/go-chi/chi"
 )
 
@@ -21,25 +22,27 @@ func generateID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	// if r.Method != http.MethodPost {
-	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	// 	return
-	// }
+func PostHandler(baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// if r.Method != http.MethodPost {
+		// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		// 	return
+		// }
 
-	url, err := io.ReadAll(r.Body)
-	if err != nil || len(url) == 0 {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
+		url, err := io.ReadAll(r.Body)
+		if err != nil || len(url) == 0 {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		id := generateID()
+		urlStore[id] = string(url)
+
+		shortenedURL := fmt.Sprintf("%s/%s", baseURL, id)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(shortenedURL))
 	}
-
-	id := generateID()
-	urlStore[id] = string(url)
-
-	shortenedURL := "http://localhost:8080/" + id
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortenedURL))
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,14 +65,16 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	cfg := config.NewConfig()
+
 	r := chi.NewRouter()
 
-	r.Post("/", PostHandler)
+	r.Post("/", PostHandler(cfg.BaseURL))
 	r.Get("/{id}", GetHandler)
 
-	fmt.Println("Server is running at http://localhost:8080")
+	fmt.Printf("Server is running at %s\n", cfg.Address)
 
-	err := http.ListenAndServe(":8080", r)
+	err := http.ListenAndServe(cfg.Address, r)
 	if err != nil {
 		panic(err)
 	}
