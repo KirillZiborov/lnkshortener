@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+
+	"github.com/go-chi/chi"
 )
 
 var urlStore = make(map[string]string)
@@ -21,10 +22,10 @@ func generateID() string {
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	// if r.Method != http.MethodPost {
+	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// 	return
+	// }
 
 	url, err := io.ReadAll(r.Body)
 	if err != nil || len(url) == 0 {
@@ -36,17 +37,18 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	urlStore[id] = string(url)
 
 	shortenedURL := "http://localhost:8080/" + id
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortenedURL))
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	// if r.Method != http.MethodGet {
+	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// 	return
+	// }
 
-	id := strings.TrimPrefix(r.URL.Path, "/")
+	id := chi.URLParam(r, "id")
 
 	originalURL, exists := urlStore[id]
 
@@ -60,13 +62,14 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", PostHandler)
-	mux.HandleFunc("/{id}", GetHandler)
+	r := chi.NewRouter()
+
+	r.Post("/", PostHandler)
+	r.Get("/{id}", GetHandler)
 
 	fmt.Println("Server is running at http://localhost:8080")
 
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(":8080", r)
 	if err != nil {
 		panic(err)
 	}

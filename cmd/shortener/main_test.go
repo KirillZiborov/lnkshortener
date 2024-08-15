@@ -7,14 +7,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServer(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", PostHandler)
-	mux.HandleFunc("/{id}", GetHandler)
+	r := chi.NewRouter()
+
+	r.Post("/", PostHandler)
+	r.Get("/{id}", GetHandler)
 
 	type want struct {
 		code          int
@@ -97,15 +99,15 @@ func TestServer(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(tc.method, tc.url, strings.NewReader(tc.body))
-			r := httptest.NewRecorder()
+			rw := httptest.NewRecorder()
 
-			mux.ServeHTTP(r, req)
+			r.ServeHTTP(rw, req)
 
 			// Проверка код ответа
-			assert.Equal(t, tc.want.code, r.Code)
+			assert.Equal(t, tc.want.code, rw.Code)
 
 			// Получаем и проверяем тело запроса
-			res := r.Result()
+			res := rw.Result()
 			defer res.Body.Close()
 			_, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
@@ -116,8 +118,8 @@ func TestServer(t *testing.T) {
 			}
 
 			// Проверяем, что URL был правильно сохранен в urlStore при POST-запросе
-			if tc.method == http.MethodPost && r.Code == http.StatusCreated {
-				shortenedURL := strings.TrimPrefix(r.Body.String(), "http://localhost:8080/")
+			if tc.method == http.MethodPost && rw.Code == http.StatusCreated {
+				shortenedURL := strings.TrimPrefix(rw.Body.String(), "http://localhost:8080/")
 				originalURL, exists := urlStore[shortenedURL]
 				assert.True(t, exists)
 				assert.Equal(t, tc.body, originalURL)
