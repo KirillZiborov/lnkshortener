@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"fmt"
+	"os"
 )
 
 type Config struct {
@@ -18,8 +18,19 @@ func NewConfig() *Config {
 
 	flag.Parse()
 
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = fmt.Sprintf("http://%s", cfg.Address)
+	envAddress := os.Getenv("SERVER_ADDRESS")
+	envBaseURL := os.Getenv("BASE_URL")
+
+	if envAddress != "" {
+		cfg.Address = envAddress
+	} else if cfg.Address == "" {
+		cfg.Address = "localhost:8080"
+	}
+
+	if envBaseURL != "" {
+		cfg.BaseURL = envBaseURL
+	} else if cfg.BaseURL == "" {
+		cfg.BaseURL = "http://" + cfg.Address
 	}
 
 	return cfg
