@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+
+	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
+	"github.com/go-chi/chi"
 )
 
 var urlStore = make(map[string]string)
@@ -20,33 +22,28 @@ func generateID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func PostHandler(baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		url, err := io.ReadAll(r.Body)
+		if err != nil || len(url) == 0 {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		id := generateID()
+		urlStore[id] = string(url)
+
+		shortenedURL := fmt.Sprintf("%s/%s", baseURL, id)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(shortenedURL))
 	}
-
-	url, err := io.ReadAll(r.Body)
-	if err != nil || len(url) == 0 {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	id := generateID()
-	urlStore[id] = string(url)
-
-	shortenedURL := "http://localhost:8080/" + id
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortenedURL))
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
-	id := strings.TrimPrefix(r.URL.Path, "/")
+	id := chi.URLParam(r, "id")
 
 	originalURL, exists := urlStore[id]
 
@@ -60,13 +57,16 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", PostHandler)
-	mux.HandleFunc("/{id}", GetHandler)
+	cfg := config.NewConfig()
 
-	fmt.Println("Server is running at http://localhost:8080")
+	r := chi.NewRouter()
 
-	err := http.ListenAndServe(":8080", mux)
+	r.Post("/", PostHandler(cfg.BaseURL))
+	r.Get("/{id}", GetHandler)
+
+	fmt.Printf("Server is running at %s\n", cfg.Address)
+
+	err := http.ListenAndServe(cfg.Address, r)
 	if err != nil {
 		panic(err)
 	}
