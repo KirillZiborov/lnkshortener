@@ -24,10 +24,6 @@ func generateID() string {
 
 func PostHandler(baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// if r.Method != http.MethodPost {
-		// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		// 	return
-		// }
 
 		url, err := io.ReadAll(r.Body)
 		if err != nil || len(url) == 0 {
@@ -46,10 +42,6 @@ func PostHandler(baseURL string) http.HandlerFunc {
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
-	// if r.Method != http.MethodGet {
-	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	// 	return
-	// }
 
 	id := chi.URLParam(r, "id")
 
