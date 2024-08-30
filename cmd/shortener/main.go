@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,6 +42,49 @@ func PostHandler(baseURL string) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(shortenedURL))
+	}
+}
+
+type jsonRequest struct {
+	URL string `json:"url"`
+}
+
+type jsonResponse struct {
+	Result string `json:"result"`
+}
+
+func APIShortenHandler(baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req jsonRequest
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		err = json.Unmarshal(body, &req)
+		if err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		id := generateID()
+		urlStore[id] = req.URL
+
+		res := jsonResponse{
+			Result: fmt.Sprintf("%s/%s", baseURL, id),
+		}
+
+		responseJSON, err := json.Marshal(res)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(responseJSON)
 	}
 }
 
@@ -132,6 +176,7 @@ func main() {
 
 	r.Post("/", PostHandler(cfg.BaseURL))
 	r.Get("/{id}", GetHandler)
+	r.Post("/api/shorten", APIShortenHandler(cfg.BaseURL))
 
 	sugar.Infow(
 		"Starting server at",
