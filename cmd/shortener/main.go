@@ -168,6 +168,19 @@ type compressWriter struct {
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w
+
+		//decompressing
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			cr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, "Failed to decompress request body", http.StatusBadRequest)
+				return
+			}
+
+			defer cr.Close()
+			r.Body = cr
+		}
+
 		//compressing
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
@@ -181,16 +194,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			ow = compressWriter{ResponseWriter: w, Writer: gz}
 		}
 
-		//decompressing
-		if strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
-			cr, err := gzip.NewReader(r.Body)
-			if err != nil {
-				http.Error(w, "Failed to decompress request body", http.StatusBadRequest)
-				return
-			}
-			r.Body = cr
-			defer cr.Close()
-		}
 		next.ServeHTTP(ow, r)
 	})
 }
