@@ -167,7 +167,6 @@ type compressWriter struct {
 
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ow := w
 
 		//decompressing
 		if r.Header.Get("Content-Encoding") == "gzip" {
@@ -187,10 +186,12 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			defer gz.Close()
 
 			w.Header().Set("Content-Encoding", "gzip")
-			ow = &compressWriter{ResponseWriter: w, Writer: gz}
+			ow := &compressWriter{ResponseWriter: w, Writer: gz}
+			next.ServeHTTP(ow, r)
+			return
 		}
 
-		next.ServeHTTP(ow, r)
+		next.ServeHTTP(w, r)
 	})
 }
 
