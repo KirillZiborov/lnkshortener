@@ -1,12 +1,14 @@
 package main
 
 import (
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
@@ -158,6 +160,41 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode // захватываем код статуса
 }
 
+type compressWriter struct {
+	http.ResponseWriter
+	Writer io.Writer
+}
+
+func GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ow := w
+		//compressing
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+			if err != nil {
+				http.Error(w, "Failed to compress data", http.StatusBadRequest)
+				return
+			}
+			defer gz.Close()
+
+			w.Header().Set("Content-Encoding", "gzip")
+			ow = compressWriter{ResponseWriter: w, Writer: gz}
+		}
+
+		//decompressing
+		if strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
+			cr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, "Failed to decompress request body", http.StatusBadRequest)
+				return
+			}
+			r.Body = cr
+			defer cr.Close()
+		}
+		next.ServeHTTP(ow, r)
+	})
+}
+
 func main() {
 
 	logger, err := zap.NewDevelopment()
@@ -173,6 +210,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(LoggingMiddleware())
+	r.Use(GzipMiddleware)
 
 	r.Post("/", PostHandler(cfg.BaseURL))
 	r.Get("/{id}", GetHandler)
