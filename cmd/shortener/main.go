@@ -161,38 +161,90 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 }
 
 type compressWriter struct {
-	http.ResponseWriter
-	Writer io.Writer
+	w  http.ResponseWriter
+	zw *gzip.Writer
 }
 
-func GzipMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func newCompressWriter(w http.ResponseWriter) *compressWriter {
+	return &compressWriter{
+		w:  w,
+		zw: gzip.NewWriter(w),
+	}
+}
 
-		//decompressing
-		if r.Header.Get("Content-Encoding") == "gzip" {
-			cr, err := gzip.NewReader(r.Body)
+func (c *compressWriter) Header() http.Header {
+	return c.w.Header()
+}
+
+func (c *compressWriter) Write(p []byte) (int, error) {
+	return c.zw.Write(p)
+}
+
+func (c *compressWriter) WriteHeader(statusCode int) {
+	if statusCode < 300 {
+		c.w.Header().Set("Content-Encoding", "gzip")
+	}
+	c.w.WriteHeader(statusCode)
+}
+
+func (c *compressWriter) Close() error {
+	return c.zw.Close()
+}
+
+type compressReader struct {
+	r  io.ReadCloser
+	zr *gzip.Reader
+}
+
+func newCompressReader(r io.ReadCloser) (*compressReader, error) {
+	zr, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &compressReader{
+		r:  r,
+		zr: zr,
+	}, nil
+}
+
+func (c compressReader) Read(p []byte) (n int, err error) {
+	return c.zr.Read(p)
+}
+
+func (c *compressReader) Close() error {
+	if err := c.r.Close(); err != nil {
+		return err
+	}
+	return c.zr.Close()
+}
+
+func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ow := w
+
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		supportsGzip := strings.Contains(acceptEncoding, "gzip")
+		if supportsGzip {
+			cw := newCompressWriter(w)
+			ow = cw
+			defer cw.Close()
+		}
+
+		contentEncoding := r.Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			cr, err := newCompressReader(r.Body)
 			if err != nil {
-				http.Error(w, "Failed to decompress request body", http.StatusBadRequest)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-
-			defer cr.Close()
 			r.Body = cr
+			defer cr.Close()
 		}
 
-		//compressing
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			gz := gzip.NewWriter(w)
-			defer gz.Close()
-
-			w.Header().Set("Content-Encoding", "gzip")
-			ow := &compressWriter{ResponseWriter: w, Writer: gz}
-			next.ServeHTTP(ow, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+		h.ServeHTTP(ow, r)
+	}
 }
 
 func main() {
@@ -210,11 +262,10 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(LoggingMiddleware())
-	r.Use(GzipMiddleware)
 
-	r.Post("/", PostHandler(cfg.BaseURL))
-	r.Get("/{id}", GetHandler)
-	r.Post("/api/shorten", APIShortenHandler(cfg.BaseURL))
+	r.Post("/", GzipMiddleware(PostHandler(cfg.BaseURL)))
+	r.Get("/{id}", GzipMiddleware(GetHandler))
+	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(cfg.BaseURL)))
 
 	sugar.Infow(
 		"Starting server at",
