@@ -183,15 +183,11 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		//compressing
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
-			if err != nil {
-				http.Error(w, "Failed to compress data", http.StatusBadRequest)
-				return
-			}
+			gz := gzip.NewWriter(w)
 			defer gz.Close()
 
 			w.Header().Set("Content-Encoding", "gzip")
-			ow = compressWriter{ResponseWriter: w, Writer: gz}
+			ow = &compressWriter{ResponseWriter: w, Writer: gz}
 		}
 
 		next.ServeHTTP(ow, r)
