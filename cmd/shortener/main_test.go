@@ -17,11 +17,6 @@ import (
 )
 
 func createTestFile(t *testing.T, fileName string) {
-	// err := os.Remove(fileName)
-	// if err != nil && !os.IsNotExist(err) {
-	// 	t.Fatalf("Failed to remove file: %v", err)
-	// }
-
 	file, err := os.Create(fileName)
 	if err != nil {
 		t.Fatalf("Failed to create file: %v", err)
