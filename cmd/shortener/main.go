@@ -4,20 +4,27 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
-	"github.com/KirillZiborov/lnkshortener/cmd/shortener/gzip"
+	"github.com/KirillZiborov/lnkshortener/internal/config"
+	"github.com/KirillZiborov/lnkshortener/internal/file"
+	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/go-chi/chi"
 	"go.uber.org/zap"
 )
 
-var sugar zap.SugaredLogger
-var urlStore = make(map[string]string)
+var (
+	sugar   zap.SugaredLogger
+	counter = 1
+)
 
 func generateID() string {
 	b := make([]byte, 8)
@@ -28,7 +35,7 @@ func generateID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func PostHandler(baseURL string) http.HandlerFunc {
+func PostHandler(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		url, err := io.ReadAll(r.Body)
@@ -38,9 +45,24 @@ func PostHandler(baseURL string) http.HandlerFunc {
 		}
 
 		id := generateID()
-		urlStore[id] = string(url)
+		ourl := string(url)
 
-		shortenedURL := fmt.Sprintf("%s/%s", baseURL, id)
+		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+
+		urlRecord := file.URLRecord{
+			UUID:        strconv.Itoa(counter),
+			ShortURL:    shortenedURL,
+			OriginalURL: ourl,
+		}
+
+		err = file.SaveURLRecord(&urlRecord, cfg.FilePath)
+		if err != nil {
+			http.Error(w, "Failed to save URL to file", http.StatusInternalServerError)
+			return
+		}
+
+		counter++
+
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(shortenedURL))
@@ -55,7 +77,7 @@ type jsonResponse struct {
 	Result string `json:"result"`
 }
 
-func APIShortenHandler(baseURL string) http.HandlerFunc {
+func APIShortenHandler(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRequest
 
@@ -72,11 +94,25 @@ func APIShortenHandler(baseURL string) http.HandlerFunc {
 		}
 
 		id := generateID()
-		urlStore[id] = req.URL
+		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
 		res := jsonResponse{
-			Result: fmt.Sprintf("%s/%s", baseURL, id),
+			Result: shortenedURL,
 		}
+
+		urlRecord := file.URLRecord{
+			UUID:        strconv.Itoa(counter),
+			ShortURL:    shortenedURL,
+			OriginalURL: req.URL,
+		}
+
+		err = file.SaveURLRecord(&urlRecord, cfg.FilePath)
+		if err != nil {
+			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+			return
+		}
+
+		counter++
 
 		responseJSON, err := json.Marshal(res)
 		if err != nil {
@@ -90,19 +126,27 @@ func APIShortenHandler(baseURL string) http.HandlerFunc {
 	}
 }
 
-func GetHandler(w http.ResponseWriter, r *http.Request) {
+func GetHandler(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-	id := chi.URLParam(r, "id")
+		id := chi.URLParam(r, "id")
+		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+		log.Println(shortenedURL)
 
-	originalURL, exists := urlStore[id]
+		originalURL, err := file.FindOriginalURLByShortURL(shortenedURL, cfg.FilePath)
+		if err != nil {
+			if errors.Is(err, os.ErrProcessDone) {
+				http.Error(w, "Not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				log.Fatal("Error finding URL: ", err)
+			}
+			return
+		}
 
-	if !exists {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
+		w.Header().Set("Location", originalURL)
+		w.WriteHeader(http.StatusTemporaryRedirect)
 	}
-
-	w.Header().Set("Location", originalURL)
-	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func LoggingMiddleware() func(h http.Handler) http.Handler {
@@ -204,9 +248,9 @@ func main() {
 
 	r.Use(LoggingMiddleware())
 
-	r.Post("/", GzipMiddleware(PostHandler(cfg.BaseURL)))
-	r.Get("/{id}", GzipMiddleware(GetHandler))
-	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(cfg.BaseURL)))
+	r.Post("/", GzipMiddleware(PostHandler(*cfg)))
+	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg)))
+	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg)))
 
 	sugar.Infow(
 		"Starting server at",

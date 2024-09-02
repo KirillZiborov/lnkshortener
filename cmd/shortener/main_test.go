@@ -5,26 +5,44 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/KirillZiborov/lnkshortener/cmd/shortener/config"
+	"github.com/KirillZiborov/lnkshortener/internal/config"
+	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func createTestFile(t *testing.T, fileName string) {
+	// err := os.Remove(fileName)
+	// if err != nil && !os.IsNotExist(err) {
+	// 	t.Fatalf("Failed to remove file: %v", err)
+	// }
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+	file.Close()
+}
+
 func TestServer(t *testing.T) {
 	cfg := &config.Config{
-		Address: "localhost:8080",
-		BaseURL: "http://localhost:8080",
+		Address:  "localhost:8080",
+		BaseURL:  "http://localhost:8080",
+		FilePath: "test_file.json",
 	}
+
+	createTestFile(t, cfg.FilePath)
 
 	r := chi.NewRouter()
 
-	r.Post("/", PostHandler(cfg.BaseURL))
-	r.Get("/{id}", GetHandler)
-	r.Post("/api/shorten", APIShortenHandler(cfg.BaseURL))
+	r.Post("/", PostHandler(*cfg))
+	r.Get("/{id}", GetHandler(*cfg))
+	r.Post("/api/shorten", APIShortenHandler(*cfg))
 
 	type want struct {
 		code          int
@@ -69,7 +87,14 @@ func TestServer(t *testing.T) {
 				},
 			},
 			setupStore: func() {
-				urlStore["id"] = "https://ya.ru"
+				urlRecord := &file.URLRecord{
+					UUID:        "id",
+					ShortURL:    cfg.BaseURL + "/id",
+					OriginalURL: "https://ya.ru",
+				}
+
+				err := file.SaveURLRecord(urlRecord, cfg.FilePath)
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -88,7 +113,14 @@ func TestServer(t *testing.T) {
 				code: http.StatusMethodNotAllowed,
 			},
 			setupStore: func() {
-				urlStore["id"] = "https://ya.ru"
+				urlRecord := &file.URLRecord{
+					UUID:        "id",
+					ShortURL:    cfg.BaseURL + "/id",
+					OriginalURL: "https://ya.ru",
+				}
+
+				err := file.SaveURLRecord(urlRecord, cfg.FilePath)
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -122,6 +154,8 @@ func TestServer(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			createTestFile(t, cfg.FilePath)
+
 			if tc.setupStore != nil {
 				tc.setupStore()
 			}
@@ -151,10 +185,26 @@ func TestServer(t *testing.T) {
 
 			// Проверяем, что URL был правильно сохранен в urlStore при POST-запросе
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated && tc.url == "/" {
-				shortenedURL := strings.TrimPrefix(rw.Body.String(), cfg.BaseURL+"/")
-				originalURL, exists := urlStore[shortenedURL]
-				assert.True(t, exists)
-				assert.Equal(t, tc.body, originalURL)
+				shortenedURL := rw.Body.String()
+
+				consumer, err := file.NewConsumer(cfg.FilePath)
+				require.NoError(t, err)
+				defer consumer.File.Close()
+
+				var foundRecord *file.URLRecord
+				for {
+					record, err := consumer.ReadURLRecord()
+					if err != nil {
+						break
+					}
+					if record.ShortURL == shortenedURL {
+						foundRecord = record
+						break
+					}
+				}
+
+				assert.NotNil(t, foundRecord)
+				assert.Equal(t, tc.body, foundRecord.OriginalURL)
 			}
 
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated && tc.url == "/api/shorten" {
@@ -162,10 +212,26 @@ func TestServer(t *testing.T) {
 				err = json.Unmarshal(respBody, &jsonResp)
 				require.NoError(t, err)
 
-				shortenedURL := strings.TrimPrefix(jsonResp.Result, cfg.BaseURL+"/")
-				originalURL, exists := urlStore[shortenedURL]
-				assert.True(t, exists)
-				assert.Equal(t, "https://practicum.yandex.ru", originalURL)
+				shortenedURL := jsonResp.Result
+
+				consumer, err := file.NewConsumer(cfg.FilePath)
+				require.NoError(t, err)
+				defer consumer.File.Close()
+
+				var foundRecord *file.URLRecord
+				for {
+					record, err := consumer.ReadURLRecord()
+					if err != nil {
+						break
+					}
+					if record.ShortURL == shortenedURL {
+						foundRecord = record
+						break
+					}
+				}
+
+				assert.NotNil(t, foundRecord)
+				assert.Equal(t, "https://practicum.yandex.ru", foundRecord.OriginalURL)
 			}
 		})
 	}
