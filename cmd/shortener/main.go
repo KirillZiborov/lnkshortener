@@ -131,7 +131,6 @@ func GetHandler(cfg config.Config) http.HandlerFunc {
 
 		id := chi.URLParam(r, "id")
 		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
-		log.Println(shortenedURL)
 
 		originalURL, err := file.FindOriginalURLByShortURL(shortenedURL, cfg.FilePath)
 		if err != nil {
