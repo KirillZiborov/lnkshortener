@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -138,7 +137,6 @@ func GetHandler(cfg config.Config) http.HandlerFunc {
 				http.Error(w, "Not found", http.StatusNotFound)
 			} else {
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				log.Fatal("Error finding URL: ", err)
 			}
 			return
 		}
