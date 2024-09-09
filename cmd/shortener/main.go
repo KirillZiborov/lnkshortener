@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -17,12 +18,14 @@ import (
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/go-chi/chi"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 var (
 	sugar   zap.SugaredLogger
 	counter = 1
+	db      *pgxpool.Pool
 )
 
 func generateID() string {
@@ -229,6 +232,20 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func PingDBHandler(w http.ResponseWriter, r *http.Request) {
+
+	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+	defer cancel()
+
+	err := db.Ping(ctx)
+	if err != nil {
+		http.Error(w, "Unable to connect to database", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
 
 	logger, err := zap.NewDevelopment()
@@ -241,6 +258,16 @@ func main() {
 
 	cfg := config.NewConfig()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	db, err = pgxpool.New(ctx, cfg.DBPath)
+	if err != nil {
+		sugar.Fatalw("Unable to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
 	r := chi.NewRouter()
 
 	r.Use(LoggingMiddleware())
@@ -248,6 +275,7 @@ func main() {
 	r.Post("/", GzipMiddleware(PostHandler(*cfg)))
 	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg)))
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg)))
+	r.Get("/ping", PingDBHandler)
 
 	sugar.Infow(
 		"Starting server at",

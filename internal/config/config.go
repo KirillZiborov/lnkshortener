@@ -9,6 +9,7 @@ type Config struct {
 	Address  string
 	BaseURL  string
 	FilePath string
+	DBPath   string
 }
 
 func NewConfig() *Config {
@@ -17,6 +18,7 @@ func NewConfig() *Config {
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "Address of the HTTP server")
 	flag.StringVar(&cfg.BaseURL, "b", "http://localhost:8080", "BaseURL for shortened URLs")
 	flag.StringVar(&cfg.FilePath, "f", "", "URL storage file path")
+	flag.StringVar(&cfg.FilePath, "d", "", "Database address")
 
 	flag.Parse()
 
@@ -41,6 +43,14 @@ func NewConfig() *Config {
 
 	if cfg.FilePath == "" {
 		cfg.FilePath = "URLstorage.json"
+	}
+
+	if DBPath := os.Getenv("DATABASE_DSN"); DBPath != "" {
+		cfg.DBPath = DBPath
+	}
+
+	if cfg.DBPath == "" {
+		cfg.DBPath = "database.db"
 	}
 
 	return cfg
