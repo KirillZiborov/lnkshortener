@@ -258,15 +258,19 @@ func main() {
 
 	cfg := config.NewConfig()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	if cfg.DBPath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	db, err = pgxpool.New(ctx, cfg.DBPath)
-	if err != nil {
-		sugar.Fatalw("Unable to connect to database", "error", err)
-		os.Exit(1)
+		db, err = pgxpool.New(ctx, cfg.DBPath)
+		if err != nil {
+			sugar.Fatalw("Unable to connect to database", "error", err)
+			os.Exit(1)
+		}
+		defer db.Close()
+	} else {
+		sugar.Infow("Running without database")
 	}
-	defer db.Close()
 
 	r := chi.NewRouter()
 
@@ -275,7 +279,10 @@ func main() {
 	r.Post("/", GzipMiddleware(PostHandler(*cfg)))
 	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg)))
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg)))
-	r.Get("/ping", PingDBHandler)
+
+	if db != nil {
+		r.Get("/ping", PingDBHandler)
+	}
 
 	sugar.Infow(
 		"Starting server at",

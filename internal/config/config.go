@@ -49,9 +49,5 @@ func NewConfig() *Config {
 		cfg.DBPath = DBPath
 	}
 
-	if cfg.DBPath == "" {
-		cfg.DBPath = "database.db"
-	}
-
 	return cfg
 }
