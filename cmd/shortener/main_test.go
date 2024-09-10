@@ -31,13 +31,15 @@ func TestServer(t *testing.T) {
 		FilePath: "test_file.json",
 	}
 
+	urlStore = file.NewFileStore(cfg.FilePath)
+
 	createTestFile(t, cfg.FilePath)
 
 	r := chi.NewRouter()
 
-	r.Post("/", PostHandler(*cfg))
-	r.Get("/{id}", GetHandler(*cfg))
-	r.Post("/api/shorten", APIShortenHandler(*cfg))
+	r.Post("/", PostHandler(*cfg, urlStore))
+	r.Get("/{id}", GetHandler(*cfg, urlStore))
+	r.Post("/api/shorten", APIShortenHandler(*cfg, urlStore))
 
 	type want struct {
 		code          int
