@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/KirillZiborov/lnkshortener/internal/config"
+	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/go-chi/chi"
@@ -268,6 +269,12 @@ func main() {
 			os.Exit(1)
 		}
 		defer db.Close()
+
+		err = database.CreateURLTable(ctx, db)
+		if err != nil {
+			sugar.Fatalw("Failed to create table", "error", err)
+			os.Exit(1)
+		}
 	} else {
 		sugar.Infow("Running without database")
 	}
