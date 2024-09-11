@@ -253,6 +253,56 @@ func PingDBHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+type BatchRequest struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponse struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}
+
+func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var batchRequests []BatchRequest
+		var batchResponses []BatchResponse
+
+		err := json.NewDecoder(r.Body).Decode(&batchRequests)
+		if err != nil || len(batchRequests) == 0 {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		for _, req := range batchRequests {
+
+			id := generateID()
+			shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+
+			urlRecord := &file.URLRecord{
+				UUID:        req.CorrelationID,
+				ShortURL:    shortenedURL,
+				OriginalURL: req.OriginalURL,
+			}
+
+			err := store.SaveURLRecord(urlRecord)
+			if err != nil {
+				http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+				return
+			}
+
+			batchResponses = append(batchResponses, BatchResponse{
+				CorrelationID: req.CorrelationID,
+				ShortURL:      shortenedURL,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(batchResponses)
+	}
+}
+
 func main() {
 
 	logger, err := zap.NewDevelopment()
@@ -295,6 +345,7 @@ func main() {
 	r.Post("/", GzipMiddleware(PostHandler(*cfg, urlStore)))
 	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg, urlStore)))
+	r.Post("/api/shorten/batch", GzipMiddleware(BatchShortenHandler(*cfg, urlStore)))
 
 	if db != nil {
 		r.Get("/ping", PingDBHandler)
