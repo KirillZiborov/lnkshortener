@@ -16,7 +16,7 @@ func CreateURLTable(ctx context.Context, db *pgxpool.Pool) error {
         short_url TEXT NOT NULL,
         original_url TEXT NOT NULL
     );
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_short_url ON urls (short_url);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_original_url ON urls (original_url);
     `
 	_, err := db.Exec(ctx, query)
 	if err != nil {
@@ -48,7 +48,7 @@ func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) (string, error) {
 	}
 
 	if c.RowsAffected() == 0 {
-		existingShortURL, err := store.GetOriginalURL(urlRecord.OriginalURL)
+		existingShortURL, err := store.GetShortURL(urlRecord.OriginalURL)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return "", err
@@ -57,6 +57,17 @@ func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) (string, error) {
 	}
 
 	return urlRecord.ShortURL, nil
+}
+
+func (store *DBStore) GetShortURL(originalURL string) (string, error) {
+	var shortURL string
+
+	query := `SELECT short_url FROM urls WHERE original_url = $1`
+	err := store.db.QueryRow(context.Background(), query, originalURL).Scan(&shortURL)
+	if err != nil {
+		return "", err
+	}
+	return shortURL, nil
 }
 
 func (store *DBStore) GetOriginalURL(shortURL string) (string, error) {
