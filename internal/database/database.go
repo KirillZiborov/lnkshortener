@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/KirillZiborov/lnkshortener/internal/file"
@@ -15,6 +16,7 @@ func CreateURLTable(ctx context.Context, db *pgxpool.Pool) error {
         short_url TEXT NOT NULL,
         original_url TEXT NOT NULL
     );
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_short_url ON urls (short_url);
     `
 	_, err := db.Exec(ctx, query)
 	if err != nil {
@@ -31,17 +33,30 @@ func NewDBStore(db *pgxpool.Pool) *DBStore {
 	return &DBStore{db: db}
 }
 
-func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) error {
-	query := `INSERT INTO urls (id, short_url, original_url) VALUES ($1, $2, $3)`
+var ErrorDuplicate = errors.New("duplicate entry: URL already exists")
 
-	_, err := store.db.Exec(context.Background(), query, urlRecord.UUID, urlRecord.ShortURL, urlRecord.OriginalURL)
+func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) (string, error) {
+	query := `INSERT INTO urls (id, short_url, original_url) 
+			  VALUES ($1, $2, $3)
+			  ON CONFLICT (original_url) DO NOTHING`
+
+	c, err := store.db.Exec(context.Background(), query, urlRecord.UUID, urlRecord.ShortURL, urlRecord.OriginalURL)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
-		return err
+		return "", err
 	}
 
-	return nil
+	if c.RowsAffected() == 0 {
+		existingShortURL, err := store.GetOriginalURL(urlRecord.OriginalURL)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return "", err
+		}
+		return existingShortURL, ErrorDuplicate
+	}
+
+	return urlRecord.ShortURL, nil
 }
 
 func (store *DBStore) GetOriginalURL(shortURL string) (string, error) {

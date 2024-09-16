@@ -102,8 +102,8 @@ func NewFileStore(fileName string) *FileStore {
 	return &FileStore{fileName: fileName}
 }
 
-func (store *FileStore) SaveURLRecord(urlRecord *URLRecord) error {
-	return SaveURLRecord(urlRecord, store.fileName)
+func (store *FileStore) SaveURLRecord(urlRecord *URLRecord) (string, error) {
+	return "", SaveURLRecord(urlRecord, store.fileName)
 }
 
 func (store *FileStore) GetOriginalURL(shortURL string) (string, error) {

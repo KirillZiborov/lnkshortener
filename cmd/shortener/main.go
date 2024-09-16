@@ -24,7 +24,7 @@ import (
 )
 
 type URLStore interface {
-	SaveURLRecord(urlRecord *file.URLRecord) error
+	SaveURLRecord(urlRecord *file.URLRecord) (string, error)
 	GetOriginalURL(shortURL string) (string, error)
 }
 
@@ -64,8 +64,13 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			OriginalURL: ourl,
 		}
 
-		err = store.SaveURLRecord(urlRecord)
-		if err != nil {
+		shortURL, err := store.SaveURLRecord(urlRecord)
+		if errors.Is(err, database.ErrorDuplicate) {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		} else if err != nil {
 			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 			return
 		}
@@ -115,7 +120,22 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			OriginalURL: req.URL,
 		}
 
-		err = store.SaveURLRecord(urlRecord)
+		shortURL, err := store.SaveURLRecord(urlRecord)
+		if errors.Is(err, database.ErrorDuplicate) {
+			res := jsonResponse{
+				Result: shortURL,
+			}
+			responseJSON, err := json.Marshal(res)
+			if err != nil {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusConflict)
+			w.Write(responseJSON)
+			return
+		}
 		if err != nil {
 			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 			return
@@ -285,7 +305,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				OriginalURL: req.OriginalURL,
 			}
 
-			err := store.SaveURLRecord(urlRecord)
+			_, err := store.SaveURLRecord(urlRecord)
 			if err != nil {
 				http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 				return
