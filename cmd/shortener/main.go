@@ -135,8 +135,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			w.WriteHeader(http.StatusConflict)
 			w.Write(responseJSON)
 			return
-		}
-		if err != nil {
+		} else if err != nil {
 			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 			return
 		}
