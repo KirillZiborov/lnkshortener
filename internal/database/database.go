@@ -12,7 +12,7 @@ import (
 func CreateURLTable(ctx context.Context, db *pgxpool.Pool) error {
 	query := `
     CREATE TABLE IF NOT EXISTS urls (
-        id TEXT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         short_url TEXT NOT NULL,
         original_url TEXT NOT NULL
     );
@@ -36,11 +36,11 @@ func NewDBStore(db *pgxpool.Pool) *DBStore {
 var ErrorDuplicate = errors.New("duplicate entry: URL already exists")
 
 func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) (string, error) {
-	query := `INSERT INTO urls (id, short_url, original_url) 
-			  VALUES ($1, $2, $3)
+	query := `INSERT INTO urls (short_url, original_url) 
+			  VALUES ($1, $2)
 			  ON CONFLICT (original_url) DO NOTHING`
 
-	c, err := store.db.Exec(context.Background(), query, urlRecord.UUID, urlRecord.ShortURL, urlRecord.OriginalURL)
+	c, err := store.db.Exec(context.Background(), query, urlRecord.ShortURL, urlRecord.OriginalURL)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

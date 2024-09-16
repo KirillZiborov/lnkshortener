@@ -299,7 +299,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
 			urlRecord := &file.URLRecord{
-				UUID:        req.CorrelationID,
+				UUID:        strconv.Itoa(counter),
 				ShortURL:    shortenedURL,
 				OriginalURL: req.OriginalURL,
 			}
@@ -314,6 +314,8 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				CorrelationID: req.CorrelationID,
 				ShortURL:      shortenedURL,
 			})
+
+			counter++
 		}
 
 		w.Header().Set("Content-Type", "application/json")
