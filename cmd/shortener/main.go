@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -14,15 +15,24 @@ import (
 	"time"
 
 	"github.com/KirillZiborov/lnkshortener/internal/config"
+	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/go-chi/chi"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
+type URLStore interface {
+	SaveURLRecord(urlRecord *file.URLRecord) (string, error)
+	GetOriginalURL(shortURL string) (string, error)
+}
+
 var (
-	sugar   zap.SugaredLogger
-	counter = 1
+	sugar    zap.SugaredLogger
+	counter  = 1
+	db       *pgxpool.Pool
+	urlStore URLStore
 )
 
 func generateID() string {
@@ -34,7 +44,7 @@ func generateID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func PostHandler(cfg config.Config) http.HandlerFunc {
+func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		url, err := io.ReadAll(r.Body)
@@ -48,15 +58,20 @@ func PostHandler(cfg config.Config) http.HandlerFunc {
 
 		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
-		urlRecord := file.URLRecord{
+		urlRecord := &file.URLRecord{
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: ourl,
 		}
 
-		err = file.SaveURLRecord(&urlRecord, cfg.FilePath)
-		if err != nil {
-			http.Error(w, "Failed to save URL to file", http.StatusInternalServerError)
+		shortURL, err := store.SaveURLRecord(urlRecord)
+		if errors.Is(err, database.ErrorDuplicate) {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		} else if err != nil {
+			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 			return
 		}
 
@@ -76,7 +91,7 @@ type jsonResponse struct {
 	Result string `json:"result"`
 }
 
-func APIShortenHandler(cfg config.Config) http.HandlerFunc {
+func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRequest
 
@@ -99,14 +114,28 @@ func APIShortenHandler(cfg config.Config) http.HandlerFunc {
 			Result: shortenedURL,
 		}
 
-		urlRecord := file.URLRecord{
+		urlRecord := &file.URLRecord{
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: req.URL,
 		}
 
-		err = file.SaveURLRecord(&urlRecord, cfg.FilePath)
-		if err != nil {
+		shortURL, err := store.SaveURLRecord(urlRecord)
+		if errors.Is(err, database.ErrorDuplicate) {
+			res := jsonResponse{
+				Result: shortURL,
+			}
+			responseJSON, err := json.Marshal(res)
+			if err != nil {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusConflict)
+			w.Write(responseJSON)
+			return
+		} else if err != nil {
 			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
 			return
 		}
@@ -125,13 +154,13 @@ func APIShortenHandler(cfg config.Config) http.HandlerFunc {
 	}
 }
 
-func GetHandler(cfg config.Config) http.HandlerFunc {
+func GetHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id := chi.URLParam(r, "id")
 		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
-		originalURL, err := file.FindOriginalURLByShortURL(shortenedURL, cfg.FilePath)
+		originalURL, err := store.GetOriginalURL(shortenedURL)
 		if err != nil {
 			if errors.Is(err, os.ErrProcessDone) {
 				http.Error(w, "Not found", http.StatusNotFound)
@@ -229,6 +258,72 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func PingDBHandler(w http.ResponseWriter, r *http.Request) {
+
+	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+	defer cancel()
+
+	err := db.Ping(ctx)
+	if err != nil {
+		http.Error(w, "Unable to connect to database", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+type BatchRequest struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponse struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}
+
+func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var batchRequests []BatchRequest
+		var batchResponses []BatchResponse
+
+		err := json.NewDecoder(r.Body).Decode(&batchRequests)
+		if err != nil || len(batchRequests) == 0 {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		for _, req := range batchRequests {
+
+			id := generateID()
+			shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+
+			urlRecord := &file.URLRecord{
+				UUID:        strconv.Itoa(counter),
+				ShortURL:    shortenedURL,
+				OriginalURL: req.OriginalURL,
+			}
+
+			_, err := store.SaveURLRecord(urlRecord)
+			if err != nil {
+				http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+				return
+			}
+
+			batchResponses = append(batchResponses, BatchResponse{
+				CorrelationID: req.CorrelationID,
+				ShortURL:      shortenedURL,
+			})
+
+			counter++
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(batchResponses)
+	}
+}
+
 func main() {
 
 	logger, err := zap.NewDevelopment()
@@ -241,13 +336,41 @@ func main() {
 
 	cfg := config.NewConfig()
 
+	if cfg.DBPath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		db, err = pgxpool.New(ctx, cfg.DBPath)
+		if err != nil {
+			sugar.Fatalw("Unable to connect to database", "error", err)
+			os.Exit(1)
+		}
+
+		err = database.CreateURLTable(ctx, db)
+		if err != nil {
+			sugar.Fatalw("Failed to create table", "error", err)
+			os.Exit(1)
+		}
+		defer db.Close()
+
+		urlStore = database.NewDBStore(db)
+	} else {
+		sugar.Infow("Running without database")
+		urlStore = file.NewFileStore(cfg.FilePath)
+	}
+
 	r := chi.NewRouter()
 
 	r.Use(LoggingMiddleware())
 
-	r.Post("/", GzipMiddleware(PostHandler(*cfg)))
-	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg)))
-	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg)))
+	r.Post("/", GzipMiddleware(PostHandler(*cfg, urlStore)))
+	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
+	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg, urlStore)))
+	r.Post("/api/shorten/batch", GzipMiddleware(BatchShortenHandler(*cfg, urlStore)))
+
+	if db != nil {
+		r.Get("/ping", PingDBHandler)
+	}
 
 	sugar.Infow(
 		"Starting server at",
