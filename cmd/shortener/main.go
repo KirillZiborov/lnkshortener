@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/KirillZiborov/lnkshortener/internal/auth"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
@@ -26,6 +27,7 @@ import (
 type URLStore interface {
 	SaveURLRecord(urlRecord *file.URLRecord) (string, error)
 	GetOriginalURL(shortURL string) (string, error)
+	GetUserURLs(userId string) ([]file.URLRecord, error)
 }
 
 var (
@@ -53,6 +55,30 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
+		cookie, err := r.Cookie("PostAuth")
+		var userId string
+		if err != nil {
+			token, err := auth.GenerateToken()
+			if err != nil {
+				http.Error(w, "Error while generating token", http.StatusInternalServerError)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     "err",
+				Value:    token,
+				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				HttpOnly: true,
+			})
+			userId = auth.GetUserID(token)
+		} else {
+			userId = auth.GetUserID(cookie.Value)
+			if userId == "" {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		id := generateID()
 		ourl := string(url)
 
@@ -62,6 +88,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: ourl,
+			UserUUID:    userId,
 		}
 
 		shortURL, err := store.SaveURLRecord(urlRecord)
@@ -101,6 +128,30 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
+		cookie, err := r.Cookie("PostAuth")
+		var userId string
+		if err != nil {
+			token, err := auth.GenerateToken()
+			if err != nil {
+				http.Error(w, "Error while generating token", http.StatusInternalServerError)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     "err",
+				Value:    token,
+				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				HttpOnly: true,
+			})
+			userId = auth.GetUserID(token)
+		} else {
+			userId = auth.GetUserID(cookie.Value)
+			if userId == "" {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		err = json.Unmarshal(body, &req)
 		if err != nil {
 			http.Error(w, "Bad request", http.StatusBadRequest)
@@ -118,6 +169,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: req.URL,
+			UserUUID:    userId,
 		}
 
 		shortURL, err := store.SaveURLRecord(urlRecord)
@@ -284,10 +336,34 @@ type BatchResponse struct {
 
 func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("PostAuth")
+		var userId string
+		if err != nil {
+			token, err := auth.GenerateToken()
+			if err != nil {
+				http.Error(w, "Error while generating token", http.StatusInternalServerError)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     "err",
+				Value:    token,
+				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				HttpOnly: true,
+			})
+			userId = auth.GetUserID(token)
+		} else {
+			userId = auth.GetUserID(cookie.Value)
+			if userId == "" {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		var batchRequests []BatchRequest
 		var batchResponses []BatchResponse
 
-		err := json.NewDecoder(r.Body).Decode(&batchRequests)
+		err = json.NewDecoder(r.Body).Decode(&batchRequests)
 		if err != nil || len(batchRequests) == 0 {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
@@ -302,6 +378,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				UUID:        strconv.Itoa(counter),
 				ShortURL:    shortenedURL,
 				OriginalURL: req.OriginalURL,
+				UserUUID:    userId,
 			}
 
 			_, err := store.SaveURLRecord(urlRecord)
@@ -321,6 +398,37 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(batchResponses)
+	}
+}
+
+func GetUserURLsHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("GetAuth")
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		userId := auth.GetUserID(cookie.Value)
+		if userId == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		records, err := store.GetUserURLs(userId)
+		if err != nil {
+			http.Error(w, "Failed to get a list of user's URLs", http.StatusInternalServerError)
+			return
+		}
+
+		if len(records) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(records)
 	}
 }
 
@@ -364,9 +472,10 @@ func main() {
 	r.Use(LoggingMiddleware())
 
 	r.Post("/", GzipMiddleware(PostHandler(*cfg, urlStore)))
-	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg, urlStore)))
 	r.Post("/api/shorten/batch", GzipMiddleware(BatchShortenHandler(*cfg, urlStore)))
+	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
+	r.Get("/api/user/urls", GzipMiddleware(GetUserURLsHandler(*cfg, urlStore)))
 
 	if db != nil {
 		r.Get("/ping", PingDBHandler)

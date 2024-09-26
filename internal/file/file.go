@@ -9,6 +9,7 @@ type URLRecord struct {
 	UUID        string `json:"uuid"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	UserUUID    string `json:"user_uuid"`
 }
 
 var URLs []URLRecord
@@ -108,4 +109,33 @@ func (store *FileStore) SaveURLRecord(urlRecord *URLRecord) (string, error) {
 
 func (store *FileStore) GetOriginalURL(shortURL string) (string, error) {
 	return FindOriginalURLByShortURL(shortURL, store.fileName)
+}
+
+func (store *FileStore) GetUserURLs(userId string) ([]URLRecord, error) {
+	var records []URLRecord
+
+	consumer, err := NewConsumer(store.fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer consumer.File.Close()
+
+	for {
+		rec, err := consumer.ReadURLRecord()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return nil, err
+		}
+
+		if rec.UserUUID == userId {
+			records = append(records, URLRecord{
+				ShortURL:    rec.ShortURL,
+				OriginalURL: rec.OriginalURL,
+			})
+		}
+	}
+
+	return records, nil
 }
