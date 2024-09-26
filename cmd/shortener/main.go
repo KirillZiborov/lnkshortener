@@ -55,17 +55,18 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		cookie, err := r.Cookie("PostAuth")
+		cookie, err := r.Cookie("cookie")
 		var userId string
+
 		if err != nil {
-			token, err := auth.GenerateToken()
+			token, err := auth.GenerateToken("")
 			if err != nil {
 				http.Error(w, "Error while generating token", http.StatusInternalServerError)
 				return
 			}
 
 			http.SetCookie(w, &http.Cookie{
-				Name:     "err",
+				Name:     "cookie",
 				Value:    token,
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
@@ -128,17 +129,18 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		cookie, err := r.Cookie("PostAuth")
+		cookie, err := r.Cookie("cookie")
 		var userId string
+
 		if err != nil {
-			token, err := auth.GenerateToken()
+			token, err := auth.GenerateToken("")
 			if err != nil {
 				http.Error(w, "Error while generating token", http.StatusInternalServerError)
 				return
 			}
 
 			http.SetCookie(w, &http.Cookie{
-				Name:     "err",
+				Name:     "cookie",
 				Value:    token,
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
@@ -336,17 +338,18 @@ type BatchResponse struct {
 
 func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("PostAuth")
+		cookie, err := r.Cookie("cookie")
 		var userId string
+
 		if err != nil {
-			token, err := auth.GenerateToken()
+			token, err := auth.GenerateToken("")
 			if err != nil {
 				http.Error(w, "Error while generating token", http.StatusInternalServerError)
 				return
 			}
 
 			http.SetCookie(w, &http.Cookie{
-				Name:     "err",
+				Name:     "cookie",
 				Value:    token,
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
@@ -403,7 +406,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 
 func GetUserURLsHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("GetAuth")
+		cookie, err := r.Cookie("cookie")
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
