@@ -68,7 +68,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "cookie",
 				Value:    token,
-				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				Expires:  time.Now().Add(auth.TokenExp),
 				HttpOnly: true,
 			})
 			userID = auth.GetUserID(token)
@@ -142,7 +142,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "cookie",
 				Value:    token,
-				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				Expires:  time.Now().Add(auth.TokenExp),
 				HttpOnly: true,
 			})
 			userID = auth.GetUserID(token)
@@ -351,7 +351,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "cookie",
 				Value:    token,
-				Expires:  time.Now().Add(auth.TOKEN_EXP),
+				Expires:  time.Now().Add(auth.TokenExp),
 				HttpOnly: true,
 			})
 			userID = auth.GetUserID(token)
