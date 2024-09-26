@@ -17,12 +17,12 @@ type Claims struct {
 const TOKEN_EXP = time.Hour * 3
 const SECRET_KEY = "supersecretkey"
 
-func GenerateToken(userId string) (string, error) {
-	if userId == "" {
-		userId = uuid.New().String()
+func GenerateToken(userID string) (string, error) {
+	if userID == "" {
+		userID = uuid.New().String()
 	}
 
-	tokenString, err := BuildJWTString(userId)
+	tokenString, err := BuildJWTString(userID)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,13 +30,13 @@ func GenerateToken(userId string) (string, error) {
 	return tokenString, nil
 }
 
-func BuildJWTString(userId string) (string, error) {
+func BuildJWTString(userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
 		},
 
-		UserID: userId,
+		UserID: userID,
 	})
 
 	tokenString, err := token.SignedString([]byte(SECRET_KEY))

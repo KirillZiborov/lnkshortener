@@ -111,7 +111,7 @@ func (store *FileStore) GetOriginalURL(shortURL string) (string, error) {
 	return FindOriginalURLByShortURL(shortURL, store.fileName)
 }
 
-func (store *FileStore) GetUserURLs(userId string) ([]URLRecord, error) {
+func (store *FileStore) GetUserURLs(userID string) ([]URLRecord, error) {
 	var records []URLRecord
 
 	consumer, err := NewConsumer(store.fileName)
@@ -129,7 +129,7 @@ func (store *FileStore) GetUserURLs(userId string) ([]URLRecord, error) {
 			return nil, err
 		}
 
-		if rec.UserUUID == userId {
+		if rec.UserUUID == userID {
 			records = append(records, URLRecord{
 				ShortURL:    rec.ShortURL,
 				OriginalURL: rec.OriginalURL,

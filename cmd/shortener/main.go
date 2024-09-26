@@ -27,7 +27,7 @@ import (
 type URLStore interface {
 	SaveURLRecord(urlRecord *file.URLRecord) (string, error)
 	GetOriginalURL(shortURL string) (string, error)
-	GetUserURLs(userId string) ([]file.URLRecord, error)
+	GetUserURLs(userID string) ([]file.URLRecord, error)
 }
 
 var (
@@ -56,7 +56,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		}
 
 		cookie, err := r.Cookie("cookie")
-		var userId string
+		var userID string
 
 		if err != nil {
 			token, err := auth.GenerateToken("")
@@ -71,10 +71,10 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
 			})
-			userId = auth.GetUserID(token)
+			userID = auth.GetUserID(token)
 		} else {
-			userId = auth.GetUserID(cookie.Value)
-			if userId == "" {
+			userID = auth.GetUserID(cookie.Value)
+			if userID == "" {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -89,7 +89,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: ourl,
-			UserUUID:    userId,
+			UserUUID:    userID,
 		}
 
 		shortURL, err := store.SaveURLRecord(urlRecord)
@@ -130,7 +130,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		}
 
 		cookie, err := r.Cookie("cookie")
-		var userId string
+		var userID string
 
 		if err != nil {
 			token, err := auth.GenerateToken("")
@@ -145,10 +145,10 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
 			})
-			userId = auth.GetUserID(token)
+			userID = auth.GetUserID(token)
 		} else {
-			userId = auth.GetUserID(cookie.Value)
-			if userId == "" {
+			userID = auth.GetUserID(cookie.Value)
+			if userID == "" {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -171,7 +171,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			UUID:        strconv.Itoa(counter),
 			ShortURL:    shortenedURL,
 			OriginalURL: req.URL,
-			UserUUID:    userId,
+			UserUUID:    userID,
 		}
 
 		shortURL, err := store.SaveURLRecord(urlRecord)
@@ -339,7 +339,7 @@ type BatchResponse struct {
 func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("cookie")
-		var userId string
+		var userID string
 
 		if err != nil {
 			token, err := auth.GenerateToken("")
@@ -354,10 +354,10 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				Expires:  time.Now().Add(auth.TOKEN_EXP),
 				HttpOnly: true,
 			})
-			userId = auth.GetUserID(token)
+			userID = auth.GetUserID(token)
 		} else {
-			userId = auth.GetUserID(cookie.Value)
-			if userId == "" {
+			userID = auth.GetUserID(cookie.Value)
+			if userID == "" {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -381,7 +381,7 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 				UUID:        strconv.Itoa(counter),
 				ShortURL:    shortenedURL,
 				OriginalURL: req.OriginalURL,
-				UserUUID:    userId,
+				UserUUID:    userID,
 			}
 
 			_, err := store.SaveURLRecord(urlRecord)
@@ -412,13 +412,13 @@ func GetUserURLsHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		userId := auth.GetUserID(cookie.Value)
-		if userId == "" {
+		userID := auth.GetUserID(cookie.Value)
+		if userID == "" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		records, err := store.GetUserURLs(userId)
+		records, err := store.GetUserURLs(userID)
 		if err != nil {
 			http.Error(w, "Failed to get a list of user's URLs", http.StatusInternalServerError)
 			return

@@ -82,11 +82,11 @@ func (store *DBStore) GetOriginalURL(shortURL string) (string, error) {
 	return originalURL, nil
 }
 
-func (store *DBStore) GetUserURLs(userId string) ([]file.URLRecord, error) {
+func (store *DBStore) GetUserURLs(userID string) ([]file.URLRecord, error) {
 	var records []file.URLRecord
 
 	query := `SELECT short_url, original_url FROM urls WHERE user_id = $1`
-	rows, err := store.db.Query(context.Background(), query, userId)
+	rows, err := store.db.Query(context.Background(), query, userID)
 	if err != nil {
 		return nil, err
 	}
