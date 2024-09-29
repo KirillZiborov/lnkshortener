@@ -111,7 +111,7 @@ func (store *DBStore) GetUserURLs(userID string) ([]file.URLRecord, error) {
 }
 
 func (store *DBStore) BatchUpdateDeleteFlag(urlID string, userID string) error {
-	query := `UPDATE urls SET deleted = TRUE WHERE id = $1 AND user_id = $2`
-	_, err := store.db.Query(context.Background(), query, urlID, userID)
+	query := `UPDATE urls SET deleted = TRUE WHERE short_url = $1 AND user_id = $2`
+	_, err := store.db.Exec(context.Background(), query, urlID, userID)
 	return err
 }
