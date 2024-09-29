@@ -110,6 +110,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+		defer r.Body.Close()
 
 		userID, err := auth.AuthPost(w, r)
 		if err != nil {
@@ -382,6 +383,7 @@ func BatchDeleteHandler(store URLStore) http.HandlerFunc {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+		defer r.Body.Close()
 
 		userID, err := auth.AuthGet(r)
 		if err != nil {
@@ -435,7 +437,7 @@ func generator(doneCh chan struct{}, input []string) chan string {
 
 func fanOut(store URLStore, doneCh chan struct{}, inputCh chan string, userID string) []chan error {
 	// количество горутин add
-	numWorkers := 10
+	numWorkers := 5
 	// каналы, в которые отправляются результаты
 	channels := make([]chan error, numWorkers)
 
