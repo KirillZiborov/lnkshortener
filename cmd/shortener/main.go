@@ -55,31 +55,6 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// cookie, err := r.Cookie("cookie")
-		// var userID string
-
-		// if err != nil {
-		// 	token, err := auth.GenerateToken("")
-		// 	if err != nil {
-		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
-		// 		return
-		// 	}
-
-		// 	http.SetCookie(w, &http.Cookie{
-		// 		Name:     "cookie",
-		// 		Value:    token,
-		// 		Expires:  time.Now().Add(auth.TokenExp),
-		// 		HttpOnly: true,
-		// 	})
-		// 	userID = auth.GetUserID(token)
-		// } else {
-		// 	userID = auth.GetUserID(cookie.Value)
-		// 	if userID == "" {
-		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		// 		return
-		// 	}
-		// }
-
 		userID, err := auth.AuthPost(w, r)
 		if err != nil {
 			return
@@ -133,31 +108,6 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
-
-		// cookie, err := r.Cookie("cookie")
-		// var userID string
-
-		// if err != nil {
-		// 	token, err := auth.GenerateToken("")
-		// 	if err != nil {
-		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
-		// 		return
-		// 	}
-
-		// 	http.SetCookie(w, &http.Cookie{
-		// 		Name:     "cookie",
-		// 		Value:    token,
-		// 		Expires:  time.Now().Add(auth.TokenExp),
-		// 		HttpOnly: true,
-		// 	})
-		// 	userID = auth.GetUserID(token)
-		// } else {
-		// 	userID = auth.GetUserID(cookie.Value)
-		// 	if userID == "" {
-		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		// 		return
-		// 	}
-		// }
 
 		userID, err := auth.AuthPost(w, r)
 		if err != nil {
@@ -348,31 +298,6 @@ type BatchResponse struct {
 
 func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// cookie, err := r.Cookie("cookie")
-		// var userID string
-
-		// if err != nil {
-		// 	token, err := auth.GenerateToken("")
-		// 	if err != nil {
-		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
-		// 		return
-		// 	}
-
-		// 	http.SetCookie(w, &http.Cookie{
-		// 		Name:     "cookie",
-		// 		Value:    token,
-		// 		Expires:  time.Now().Add(auth.TokenExp),
-		// 		HttpOnly: true,
-		// 	})
-		// 	userID = auth.GetUserID(token)
-		// } else {
-		// 	userID = auth.GetUserID(cookie.Value)
-		// 	if userID == "" {
-		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		// 		return
-		// 	}
-		// }
-
 		userID, err := auth.AuthPost(w, r)
 		if err != nil {
 			return
