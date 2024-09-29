@@ -10,6 +10,7 @@ type URLRecord struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 	UserUUID    string `json:"user_uuid"`
+	DeletedFlag bool   `json:"deleted"`
 }
 
 var URLs []URLRecord
@@ -138,4 +139,48 @@ func (store *FileStore) GetUserURLs(userID string) ([]URLRecord, error) {
 	}
 
 	return records, nil
+}
+
+func (store *FileStore) BatchUpdateDeleteFlag(urlID string, userID string) error {
+
+	consumer, err := NewConsumer(store.fileName)
+	if err != nil {
+		return err
+	}
+	defer consumer.File.Close()
+
+	var updatedRecords []URLRecord
+	for {
+		rec, err := consumer.ReadURLRecord()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return err
+		}
+
+		if rec.UUID == urlID && rec.UserUUID == userID {
+			rec.DeletedFlag = true
+		}
+
+		updatedRecords = append(updatedRecords, *rec)
+	}
+
+	return store.SaveAllRecords(updatedRecords)
+}
+
+func (store *FileStore) SaveAllRecords(records []URLRecord) error {
+	producer, err := NewProducer(store.fileName)
+	if err != nil {
+		return err
+	}
+	defer producer.File.Close()
+
+	for _, record := range records {
+		if err := producer.WriteURLRecord(&record); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
