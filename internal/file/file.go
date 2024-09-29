@@ -62,10 +62,10 @@ func (c *Consumer) ReadURLRecord() (*URLRecord, error) {
 	return URLRecord, nil
 }
 
-func FindOriginalURLByShortURL(shortURL, fileName string) (string, error) {
+func FindOriginalURLByShortURL(shortURL, fileName string) (string, bool, error) {
 	consumer, err := NewConsumer(fileName)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	defer consumer.File.Close()
 
@@ -75,15 +75,15 @@ func FindOriginalURLByShortURL(shortURL, fileName string) (string, error) {
 			if err.Error() == "EOF" {
 				break
 			}
-			return "", err
+			return "", false, err
 		}
 
 		if rec.ShortURL == shortURL {
-			return rec.OriginalURL, nil
+			return rec.OriginalURL, rec.DeletedFlag, nil
 		}
 	}
 
-	return "", os.ErrProcessDone
+	return "", false, os.ErrProcessDone
 }
 
 func SaveURLRecord(url *URLRecord, fileName string) error {
@@ -108,7 +108,7 @@ func (store *FileStore) SaveURLRecord(urlRecord *URLRecord) (string, error) {
 	return "", SaveURLRecord(urlRecord, store.fileName)
 }
 
-func (store *FileStore) GetOriginalURL(shortURL string) (string, error) {
+func (store *FileStore) GetOriginalURL(shortURL string) (string, bool, error) {
 	return FindOriginalURLByShortURL(shortURL, store.fileName)
 }
 

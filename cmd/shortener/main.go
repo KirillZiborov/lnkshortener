@@ -27,7 +27,7 @@ import (
 
 type URLStore interface {
 	SaveURLRecord(urlRecord *file.URLRecord) (string, error)
-	GetOriginalURL(shortURL string) (string, error)
+	GetOriginalURL(shortURL string) (string, bool, error)
 	GetUserURLs(userID string) ([]file.URLRecord, error)
 	BatchUpdateDeleteFlag(urlID string, userID string) error
 }
@@ -176,13 +176,18 @@ func GetHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
-		originalURL, err := store.GetOriginalURL(shortenedURL)
+		originalURL, deleted, err := store.GetOriginalURL(shortenedURL)
 		if err != nil {
 			if errors.Is(err, os.ErrProcessDone) {
 				http.Error(w, "Not found", http.StatusNotFound)
 			} else {
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 			}
+			return
+		}
+
+		if deleted {
+			http.Error(w, "URL has been deleted", http.StatusGone)
 			return
 		}
 

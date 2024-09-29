@@ -72,15 +72,16 @@ func (store *DBStore) GetShortURL(originalURL string) (string, error) {
 	return shortURL, nil
 }
 
-func (store *DBStore) GetOriginalURL(shortURL string) (string, error) {
+func (store *DBStore) GetOriginalURL(shortURL string) (string, bool, error) {
 	var originalURL string
+	var deleted bool
 
-	query := `SELECT original_url FROM urls WHERE short_url = $1`
-	err := store.db.QueryRow(context.Background(), query, shortURL).Scan(&originalURL)
+	query := `SELECT original_url, deleted FROM urls WHERE short_url = $1`
+	err := store.db.QueryRow(context.Background(), query, shortURL).Scan(&originalURL, &deleted)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return originalURL, nil
+	return originalURL, deleted, nil
 }
 
 func (store *DBStore) GetUserURLs(userID string) ([]file.URLRecord, error) {
