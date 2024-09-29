@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -63,4 +64,46 @@ func GetUserID(tokenString string) string {
 
 	fmt.Println("Token is valid")
 	return claims.UserID
+}
+
+func AuthPost(w http.ResponseWriter, r *http.Request) (string, error) {
+	cookie, err := r.Cookie("cookie")
+	var userID string
+
+	if err != nil {
+		token, err := GenerateToken("")
+		if err != nil {
+			http.Error(w, "Error while generating token", http.StatusInternalServerError)
+			return "", err
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "cookie",
+			Value:    token,
+			Expires:  time.Now().Add(TokenExp),
+			HttpOnly: true,
+		})
+		userID = GetUserID(token)
+	} else {
+		userID = GetUserID(cookie.Value)
+		if userID == "" {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return "", err
+		}
+	}
+
+	return userID, nil
+}
+
+func AuthGet(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("cookie")
+	if err != nil {
+		return "", err
+	}
+
+	userID := GetUserID(cookie.Value)
+	if userID == "" {
+		return "", err
+	}
+	return userID, err
 }

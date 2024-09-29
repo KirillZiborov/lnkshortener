@@ -55,29 +55,34 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		cookie, err := r.Cookie("cookie")
-		var userID string
+		// cookie, err := r.Cookie("cookie")
+		// var userID string
 
+		// if err != nil {
+		// 	token, err := auth.GenerateToken("")
+		// 	if err != nil {
+		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
+		// 		return
+		// 	}
+
+		// 	http.SetCookie(w, &http.Cookie{
+		// 		Name:     "cookie",
+		// 		Value:    token,
+		// 		Expires:  time.Now().Add(auth.TokenExp),
+		// 		HttpOnly: true,
+		// 	})
+		// 	userID = auth.GetUserID(token)
+		// } else {
+		// 	userID = auth.GetUserID(cookie.Value)
+		// 	if userID == "" {
+		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// 		return
+		// 	}
+		// }
+
+		userID, err := auth.AuthPost(w, r)
 		if err != nil {
-			token, err := auth.GenerateToken("")
-			if err != nil {
-				http.Error(w, "Error while generating token", http.StatusInternalServerError)
-				return
-			}
-
-			http.SetCookie(w, &http.Cookie{
-				Name:     "cookie",
-				Value:    token,
-				Expires:  time.Now().Add(auth.TokenExp),
-				HttpOnly: true,
-			})
-			userID = auth.GetUserID(token)
-		} else {
-			userID = auth.GetUserID(cookie.Value)
-			if userID == "" {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
+			return
 		}
 
 		id := generateID()
@@ -129,29 +134,34 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		cookie, err := r.Cookie("cookie")
-		var userID string
+		// cookie, err := r.Cookie("cookie")
+		// var userID string
 
+		// if err != nil {
+		// 	token, err := auth.GenerateToken("")
+		// 	if err != nil {
+		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
+		// 		return
+		// 	}
+
+		// 	http.SetCookie(w, &http.Cookie{
+		// 		Name:     "cookie",
+		// 		Value:    token,
+		// 		Expires:  time.Now().Add(auth.TokenExp),
+		// 		HttpOnly: true,
+		// 	})
+		// 	userID = auth.GetUserID(token)
+		// } else {
+		// 	userID = auth.GetUserID(cookie.Value)
+		// 	if userID == "" {
+		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// 		return
+		// 	}
+		// }
+
+		userID, err := auth.AuthPost(w, r)
 		if err != nil {
-			token, err := auth.GenerateToken("")
-			if err != nil {
-				http.Error(w, "Error while generating token", http.StatusInternalServerError)
-				return
-			}
-
-			http.SetCookie(w, &http.Cookie{
-				Name:     "cookie",
-				Value:    token,
-				Expires:  time.Now().Add(auth.TokenExp),
-				HttpOnly: true,
-			})
-			userID = auth.GetUserID(token)
-		} else {
-			userID = auth.GetUserID(cookie.Value)
-			if userID == "" {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
+			return
 		}
 
 		err = json.Unmarshal(body, &req)
@@ -338,29 +348,34 @@ type BatchResponse struct {
 
 func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("cookie")
-		var userID string
+		// cookie, err := r.Cookie("cookie")
+		// var userID string
 
+		// if err != nil {
+		// 	token, err := auth.GenerateToken("")
+		// 	if err != nil {
+		// 		http.Error(w, "Error while generating token", http.StatusInternalServerError)
+		// 		return
+		// 	}
+
+		// 	http.SetCookie(w, &http.Cookie{
+		// 		Name:     "cookie",
+		// 		Value:    token,
+		// 		Expires:  time.Now().Add(auth.TokenExp),
+		// 		HttpOnly: true,
+		// 	})
+		// 	userID = auth.GetUserID(token)
+		// } else {
+		// 	userID = auth.GetUserID(cookie.Value)
+		// 	if userID == "" {
+		// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// 		return
+		// 	}
+		// }
+
+		userID, err := auth.AuthPost(w, r)
 		if err != nil {
-			token, err := auth.GenerateToken("")
-			if err != nil {
-				http.Error(w, "Error while generating token", http.StatusInternalServerError)
-				return
-			}
-
-			http.SetCookie(w, &http.Cookie{
-				Name:     "cookie",
-				Value:    token,
-				Expires:  time.Now().Add(auth.TokenExp),
-				HttpOnly: true,
-			})
-			userID = auth.GetUserID(token)
-		} else {
-			userID = auth.GetUserID(cookie.Value)
-			if userID == "" {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
+			return
 		}
 
 		var batchRequests []BatchRequest
@@ -404,18 +419,11 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	}
 }
 
-func GetUserURLsHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+func GetUserURLsHandler(store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("cookie")
+		userID, err := auth.AuthGet(r)
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		userID := auth.GetUserID(cookie.Value)
-		if userID == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+			http.Error(w, "Unathorized", http.StatusUnauthorized)
 		}
 
 		records, err := store.GetUserURLs(userID)
@@ -478,7 +486,7 @@ func main() {
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg, urlStore)))
 	r.Post("/api/shorten/batch", GzipMiddleware(BatchShortenHandler(*cfg, urlStore)))
 	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
-	r.Get("/api/user/urls", GzipMiddleware(GetUserURLsHandler(*cfg, urlStore)))
+	r.Get("/api/user/urls", GzipMiddleware(GetUserURLsHandler(urlStore)))
 
 	if db != nil {
 		r.Get("/ping", PingDBHandler)
