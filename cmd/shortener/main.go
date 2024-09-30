@@ -20,9 +20,9 @@ import (
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
+	"github.com/KirillZiborov/lnkshortener/internal/logging"
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 )
 
 type URLStore interface {
@@ -33,7 +33,6 @@ type URLStore interface {
 }
 
 var (
-	sugar    zap.SugaredLogger
 	counter  = 1
 	db       *pgxpool.Pool
 	urlStore URLStore
@@ -195,61 +194,6 @@ func GetHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		w.Header().Set("Location", originalURL)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	}
-}
-
-func LoggingMiddleware() func(h http.Handler) http.Handler {
-	return func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			start := time.Now()
-
-			responseData := &responseData{
-				status: 0,
-				size:   0,
-			}
-
-			ww := &loggingResponseWriter{ResponseWriter: w, responseData: responseData}
-
-			h.ServeHTTP(ww, r)
-
-			duration := time.Since(start)
-
-			sugar.Infoln(
-				"uri", r.RequestURI,
-				"method", r.Method,
-				"status", responseData.status,
-				"duration", duration,
-				"size", responseData.size,
-			)
-		})
-	}
-}
-
-type (
-	// берём структуру для хранения сведений об ответе
-	responseData struct {
-		status int
-		size   int
-	}
-
-	// добавляем реализацию http.ResponseWriter
-	loggingResponseWriter struct {
-		http.ResponseWriter // встраиваем оригинальный http.ResponseWriter
-		responseData        *responseData
-	}
-)
-
-func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	// записываем ответ, используя оригинальный http.ResponseWriter
-	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size // захватываем размер
-	return size, err
-}
-
-func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	// записываем код статуса, используя оригинальный http.ResponseWriter
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode // захватываем код статуса
 }
 
 func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
@@ -416,7 +360,7 @@ func processBatchDelete(store URLStore, ids []string, userID string) {
 
 	for err := range resultCh {
 		if err != nil {
-			fmt.Println("Failed to delete URL")
+			logging.Sugar.Errorw("Failed to delete URL", err)
 		}
 	}
 }
@@ -520,13 +464,10 @@ func deleteURL(store URLStore, doneCh chan struct{}, inputCh chan string, userID
 
 func main() {
 
-	logger, err := zap.NewDevelopment()
+	err := logging.Initialize()
 	if err != nil {
-		panic(err)
+		logging.Sugar.Fatalw("Internal logging error", err)
 	}
-	defer logger.Sync()
-
-	sugar = *logger.Sugar()
 
 	cfg := config.NewConfig()
 
@@ -536,26 +477,26 @@ func main() {
 
 		db, err = pgxpool.New(ctx, cfg.DBPath)
 		if err != nil {
-			sugar.Fatalw("Unable to connect to database", "error", err)
+			logging.Sugar.Fatalw("Unable to connect to database", "error", err)
 			os.Exit(1)
 		}
 
 		err = database.CreateURLTable(ctx, db)
 		if err != nil {
-			sugar.Fatalw("Failed to create table", "error", err)
+			logging.Sugar.Fatalw("Failed to create table", "error", err)
 			os.Exit(1)
 		}
 		defer db.Close()
 
 		urlStore = database.NewDBStore(db)
 	} else {
-		sugar.Infow("Running without database")
+		logging.Sugar.Infow("Running without database")
 		urlStore = file.NewFileStore(cfg.FilePath)
 	}
 
 	r := chi.NewRouter()
 
-	r.Use(LoggingMiddleware())
+	r.Use(logging.LoggingMiddleware())
 
 	r.Post("/", GzipMiddleware(PostHandler(*cfg, urlStore)))
 	r.Post("/api/shorten", GzipMiddleware(APIShortenHandler(*cfg, urlStore)))
@@ -569,13 +510,13 @@ func main() {
 		r.Get("/ping", PingDBHandler)
 	}
 
-	sugar.Infow(
+	logging.Sugar.Infow(
 		"Starting server at",
 		"addr", cfg.Address,
 	)
 
 	err = http.ListenAndServe(cfg.Address, r)
 	if err != nil {
-		sugar.Fatalw(err.Error(), "event", "start server")
+		logging.Sugar.Fatalw(err.Error(), "event", "start server")
 	}
 }
