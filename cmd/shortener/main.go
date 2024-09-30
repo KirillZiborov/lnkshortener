@@ -376,7 +376,7 @@ func GetUserURLsHandler(store URLStore) http.HandlerFunc {
 	}
 }
 
-func BatchDeleteHandler(store URLStore) http.HandlerFunc {
+func BatchDeleteHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil || len(body) == 0 {
@@ -395,6 +395,10 @@ func BatchDeleteHandler(store URLStore) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
+		}
+
+		for i, id := range ids {
+			ids[i] = fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 		}
 
 		w.WriteHeader(http.StatusAccepted)
@@ -559,7 +563,7 @@ func main() {
 	r.Get("/{id}", GzipMiddleware(GetHandler(*cfg, urlStore)))
 	r.Get("/api/user/urls", GzipMiddleware(GetUserURLsHandler(urlStore)))
 
-	r.Delete("/api/user/urls", GzipMiddleware(BatchDeleteHandler(urlStore)))
+	r.Delete("/api/user/urls", GzipMiddleware(BatchDeleteHandler(*cfg, urlStore)))
 
 	if db != nil {
 		r.Get("/ping", PingDBHandler)
