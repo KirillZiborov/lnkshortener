@@ -63,7 +63,7 @@ type jsonRequest struct {
 	URL string `json:"url"`
 }
 
-type JsonResponse struct {
+type JSONResponse struct {
 	Result string `json:"result"`
 }
 
@@ -92,7 +92,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		id := generateID()
 		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
 
-		res := JsonResponse{
+		res := JSONResponse{
 			Result: shortenedURL,
 		}
 
@@ -105,7 +105,7 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 
 		shortURL, err := store.SaveURLRecord(urlRecord)
 		if errors.Is(err, database.ErrorDuplicate) {
-			res := JsonResponse{
+			res := JSONResponse{
 				Result: shortURL,
 			}
 			responseJSON, err := json.Marshal(res)

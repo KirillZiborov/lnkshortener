@@ -206,7 +206,7 @@ func TestServer(t *testing.T) {
 			}
 
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated && tc.url == "/api/shorten" {
-				var jsonResp handlers.JsonResponse
+				var jsonResp handlers.JSONResponse
 				err = json.Unmarshal(respBody, &jsonResp)
 				require.NoError(t, err)
 
