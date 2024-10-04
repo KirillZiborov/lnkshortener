@@ -11,6 +11,7 @@ import (
 
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
+	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,9 +38,9 @@ func TestServer(t *testing.T) {
 
 	r := chi.NewRouter()
 
-	r.Post("/", PostHandler(*cfg, urlStore))
-	r.Get("/{id}", GetHandler(*cfg, urlStore))
-	r.Post("/api/shorten", APIShortenHandler(*cfg, urlStore))
+	r.Post("/", handlers.PostHandler(*cfg, urlStore))
+	r.Get("/{id}", handlers.GetHandler(*cfg, urlStore))
+	r.Post("/api/shorten", handlers.APIShortenHandler(*cfg, urlStore))
 
 	type want struct {
 		code          int
@@ -205,7 +206,7 @@ func TestServer(t *testing.T) {
 			}
 
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated && tc.url == "/api/shorten" {
-				var jsonResp jsonResponse
+				var jsonResp handlers.JSONResponse
 				err = json.Unmarshal(respBody, &jsonResp)
 				require.NoError(t, err)
 
