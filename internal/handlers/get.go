@@ -9,10 +9,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/KirillZiborov/lnkshortener/internal/auth"
-	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/KirillZiborov/lnkshortener/internal/auth"
+	"github.com/KirillZiborov/lnkshortener/internal/config"
 )
 
 func GetHandler(cfg config.Config, store URLStore) http.HandlerFunc {

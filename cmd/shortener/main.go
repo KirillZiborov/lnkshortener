@@ -7,14 +7,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-chi/chi"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 	"github.com/KirillZiborov/lnkshortener/internal/logging"
-	"github.com/go-chi/chi"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (

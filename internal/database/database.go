@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/KirillZiborov/lnkshortener/internal/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/KirillZiborov/lnkshortener/internal/file"
 )
 
 func CreateURLTable(ctx context.Context, db *pgxpool.Pool) error {

@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KirillZiborov/lnkshortener/internal/config"
-	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/KirillZiborov/lnkshortener/internal/config"
+	"github.com/KirillZiborov/lnkshortener/internal/file"
+	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 )
 
 func createTestFile(t *testing.T, fileName string) {
