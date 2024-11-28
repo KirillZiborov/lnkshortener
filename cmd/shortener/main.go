@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"time"
 
@@ -69,6 +70,8 @@ func main() {
 		r.Get("/ping", handlers.PingDBHandler(db))
 	}
 
+	registerPprof(r)
+
 	logging.Sugar.Infow(
 		"Starting server at",
 		"addr", cfg.Address,
@@ -78,4 +81,13 @@ func main() {
 	if err != nil {
 		logging.Sugar.Fatalw(err.Error(), "event", "start server")
 	}
+}
+
+func registerPprof(r *chi.Mux) {
+	r.HandleFunc("/debug/pprof/", pprof.Index)
+	r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	r.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 }

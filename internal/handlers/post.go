@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -31,7 +30,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		id := generateID()
 		ourl := string(url)
 
-		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+		shortenedURL := cfg.BaseURL + "/" + id
 
 		urlRecord := &file.URLRecord{
 			UUID:        strconv.Itoa(counter),
@@ -71,8 +70,8 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRequest
 
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&req); err != nil {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -83,14 +82,8 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		err = json.Unmarshal(body, &req)
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
 		id := generateID()
-		shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+		shortenedURL := cfg.BaseURL + "/" + id
 
 		res := JSONResponse{
 			Result: shortenedURL,
@@ -125,15 +118,12 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 
 		counter++
 
-		responseJSON, err := json.Marshal(res)
-		if err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(res); err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusCreated)
-		w.Write(responseJSON)
 	}
 }
 
@@ -155,18 +145,20 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		}
 
 		var batchRequests []BatchRequest
-		var batchResponses []BatchResponse
 
 		err = json.NewDecoder(r.Body).Decode(&batchRequests)
 		if err != nil || len(batchRequests) == 0 {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+		defer r.Body.Close()
+
+		batchResponses := make([]BatchResponse, 0, len(batchRequests))
 
 		for _, req := range batchRequests {
 
 			id := generateID()
-			shortenedURL := fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+			shortenedURL := cfg.BaseURL + "/" + id
 
 			urlRecord := &file.URLRecord{
 				UUID:        strconv.Itoa(counter),

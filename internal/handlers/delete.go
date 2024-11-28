@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"sync"
 
@@ -14,12 +12,6 @@ import (
 
 func BatchDeleteHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil || len(body) == 0 {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
 
 		userID, err := auth.AuthGet(r)
 		if err != nil {
@@ -27,14 +19,15 @@ func BatchDeleteHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		}
 
 		var ids []string
-		err = json.Unmarshal(body, &ids)
-		if err != nil {
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&ids); err != nil || len(ids) == 0 {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+		defer r.Body.Close()
 
 		for i, id := range ids {
-			ids[i] = fmt.Sprintf("%s/%s", cfg.BaseURL, id)
+			ids[i] = cfg.BaseURL + "/" + id
 		}
 
 		w.WriteHeader(http.StatusAccepted)
