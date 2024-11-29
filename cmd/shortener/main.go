@@ -1,3 +1,7 @@
+// Package main implements a URL shortener server.
+// It initializes configuration, logging and storage (file or database),
+// sets up HTTP routes with middleware, registers pprof handlers for profiling,
+// and starts the HTTP server.
 package main
 
 import (
@@ -23,16 +27,22 @@ var (
 	urlStore handlers.URLStore
 )
 
+// main is the entrypoint of the URL shortener server.
+// It initializes configuration, logging and storage, sets up HTTP routes with middleware,
+// registers pprof handlers for profiling, and starts the HTTP server.
 func main() {
-
+	// Initialize the logging system.
 	err := logging.Initialize()
 	if err != nil {
 		logging.Sugar.Fatalw("Internal logging error", err)
 	}
 
+	// Load the configuration.
 	cfg := config.NewConfig()
 
+	// Initialize storage based on the configuration.
 	if cfg.DBPath != "" {
+		// Establish a connection to the PostgreSQL database with a timeout.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -42,6 +52,7 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Create the URL table in the database if it doesn't exist.
 		err = database.CreateURLTable(ctx, db)
 		if err != nil {
 			logging.Sugar.Fatalw("Failed to create table", "error", err)
@@ -49,41 +60,81 @@ func main() {
 		}
 		defer db.Close()
 
+		// Use the database store for URL storage.
 		urlStore = database.NewDBStore(db)
 	} else {
+		// If no database is configured, use a file-based store.
 		logging.Sugar.Infow("Running without database")
+		// Use the file for URL storage.
 		urlStore = file.NewFileStore(cfg.FilePath)
 	}
 
-	r := chi.NewRouter()
+	// Setup the router with all routes and middleware
+	router := SetupRouter(*cfg, urlStore, db)
 
-	r.Use(logging.LoggingMiddleware())
-
-	r.Post("/", gzip.Middleware(handlers.PostHandler(*cfg, urlStore)))
-	r.Post("/api/shorten", gzip.Middleware(handlers.APIShortenHandler(*cfg, urlStore)))
-	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(*cfg, urlStore)))
-	r.Get("/{id}", gzip.Middleware(handlers.GetHandler(*cfg, urlStore)))
-	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(urlStore)))
-
-	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(*cfg, urlStore)))
-
-	if db != nil {
-		r.Get("/ping", handlers.PingDBHandler(db))
-	}
-
-	registerPprof(r)
-
+	// Log the server start event with the address.
 	logging.Sugar.Infow(
 		"Starting server at",
 		"addr", cfg.Address,
 	)
 
-	err = http.ListenAndServe(cfg.Address, r)
+	// Start the HTTP server at the adress fron the configuration.
+	err = http.ListenAndServe(cfg.Address, router)
 	if err != nil {
 		logging.Sugar.Fatalw(err.Error(), "event", "start server")
 	}
 }
 
+// SetupRouter initializes the Chi router with all routes and middlewares.
+// It configures routes for creating, retrieving, and deleting shortened URLs.
+// Middleware:
+// - LoggingMiddleware: Logs each incoming HTTP request.
+// - Gzip Middleware: Compresses/decompresses data to optimize bandwidth.
+//
+// Routes:
+// - POST "/" : Creates a new shortened URL.
+// - POST "/api/shorten" : Creates a new shortened URL for JSON requests.
+// - POST "/api/shorten/batch" : Creates multiple shortened URLs in batch.
+// - GET "/{id}" : Redirects to the original URL based on the shortened ID.
+// - GET "/api/user/urls" : Retrieves all URLs created by the user.
+// - DELETE "/api/user/urls" : Deletes multiple URLs in batch.
+// - GET "/ping" : Health check endpoint to verify database connection.
+//
+// Pprof Handlers: Provides profiling endpoints for performance analysis.
+// Profiling Endpoints:
+// - "/debug/pprof/" : pprof index.
+// - "/debug/pprof/cmdline" : pprof cmdline.
+// - "/debug/pprof/profile" : pprof profile.
+// - "/debug/pprof/symbol" : pprof symbol.
+// - "/debug/pprof/trace" : pprof trace.
+// - "/debug/pprof/heap" : pprof heap.
+func SetupRouter(cfg config.Config, store handlers.URLStore, db *pgxpool.Pool) *chi.Mux {
+	r := chi.NewRouter()
+
+	// Apply global middleware
+	r.Use(logging.LoggingMiddleware())
+
+	// Define routes with associated handlers and middleware
+	r.Post("/", gzip.Middleware(handlers.PostHandler(cfg, store)))
+	r.Post("/api/shorten", gzip.Middleware(handlers.APIShortenHandler(cfg, store)))
+	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(cfg, store)))
+	r.Get("/{id}", gzip.Middleware(handlers.GetHandler(cfg, store)))
+	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(store)))
+	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(cfg, store)))
+
+	// Conditional route for database health check
+	if db != nil {
+		r.Get("/ping", handlers.PingDBHandler(db))
+	}
+
+	// Register pprof routes for profiling
+	registerPprof(r)
+
+	return r
+}
+
+// registerPprof registers pprof handlers to the provided Chi router.
+// This allows profiling and debugging of the application.
 func registerPprof(r *chi.Mux) {
 	r.HandleFunc("/debug/pprof/", pprof.Index)
 	r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)

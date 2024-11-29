@@ -20,7 +20,7 @@ func NewTestConfig() *config.Config {
 	}
 }
 
-func BenchmarkHandlePost(b *testing.B) {
+func BenchmarkPostHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
 	handler := PostHandler(*cfg, urlStore)
@@ -41,7 +41,7 @@ func BenchmarkHandlePost(b *testing.B) {
 	}
 }
 
-func BenchmarkAPIShortenPost(b *testing.B) {
+func BenchmarkAPIShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
 	handler := APIShortenHandler(*cfg, urlStore)
@@ -62,7 +62,7 @@ func BenchmarkAPIShortenPost(b *testing.B) {
 	}
 }
 
-func BenchmarkBatchShortenPost(b *testing.B) {
+func BenchmarkBatchShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
 	handler := BatchShortenHandler(*cfg, urlStore)
