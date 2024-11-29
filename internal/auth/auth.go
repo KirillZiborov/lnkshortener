@@ -44,7 +44,7 @@ func GenerateToken(userID string) (string, error) {
 // It sets the token's expiration time based on the TokenExp constant.
 // The function uses the HS256 signing method and returns the signed token string or an error.
 func BuildJWTString(userID string) (string, error) {
-	// Create a new token with given claims
+	// Create a new token with given claims.
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
@@ -53,7 +53,7 @@ func BuildJWTString(userID string) (string, error) {
 		UserID: userID,
 	})
 
-	// Sign token using SecretKey
+	// Sign token using SecretKey.
 	tokenString, err := token.SignedString([]byte(SecretKey))
 	if err != nil {
 		return "", err
@@ -67,7 +67,7 @@ func BuildJWTString(userID string) (string, error) {
 // If the token is invalid or expired, the function returns an empty string.
 func GetUserID(tokenString string) string {
 	claims := &Claims{}
-	// Parse token and extract claims
+	// Parse token and extract claims.
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
 	})
@@ -80,7 +80,7 @@ func GetUserID(tokenString string) string {
 		return ""
 	}
 
-	// fmt.Println("Token is valid")
+	// Debug: fmt.Println("Token is valid")
 	return claims.UserID
 }
 
@@ -94,14 +94,14 @@ func AuthPost(w http.ResponseWriter, r *http.Request) (string, error) {
 	var userID string
 
 	if err != nil {
-		// Generate a new token if no cookie is found
+		// Generate a new token if no cookie is found.
 		token, err := GenerateToken("")
 		if err != nil {
 			http.Error(w, "Error while generating token", http.StatusInternalServerError)
 			return "", err
 		}
 
-		// Set the token as an HTTP-only cookie
+		// Set the token as a HTTP-only cookie.
 		http.SetCookie(w, &http.Cookie{
 			Name:     "cookie",
 			Value:    token,
@@ -110,7 +110,7 @@ func AuthPost(w http.ResponseWriter, r *http.Request) (string, error) {
 		})
 		userID = GetUserID(token)
 	} else {
-		// Extract and validate the UserID from the existing cookie
+		// Extract and validate the UserID from the existing cookie.
 		userID = GetUserID(cookie.Value)
 		if userID == "" {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
@@ -121,7 +121,7 @@ func AuthPost(w http.ResponseWriter, r *http.Request) (string, error) {
 	return userID, nil
 }
 
-// AuthGet handles the authentication for HTTP GET requests.
+// AuthGet handles the authentication for HTTP requests.
 // It retrieves the authentication cookie from the request, validates the JWT token,
 // and extracts the associated UserID.
 // The function returns the UserID or an error if authentication fails.

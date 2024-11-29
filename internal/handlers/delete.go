@@ -124,7 +124,7 @@ func fanIn(doneCh chan struct{}, resultChs ...chan error) chan error {
 
 	// Iterate over each result channel.
 	for _, ch := range resultChs {
-		// Do this because it's not allowed to send ch to the goroutine.
+		// Do this because it's not allowed to send ch variable to the goroutine.
 		chClosure := ch
 
 		// Increment the WaitGroup counter.

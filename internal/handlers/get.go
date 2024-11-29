@@ -43,7 +43,7 @@ func GetHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// Check the delete flag.
+		// Check if the URL is deleted.
 		if deleted {
 			http.Error(w, "URL has been deleted", http.StatusGone)
 			return

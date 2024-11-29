@@ -32,7 +32,7 @@ func Initialize() error {
 func LoggingMiddleware() func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Start timer
+			// Start timer.
 			start := time.Now()
 
 			responseData := &responseData{
@@ -42,10 +42,10 @@ func LoggingMiddleware() func(h http.Handler) http.Handler {
 
 			ww := &loggingResponseWriter{ResponseWriter: w, responseData: responseData}
 
-			// Serve the HTTP request using the wrapped loggingResponseWriter and original request
+			// Serve the HTTP request using the wrapped loggingResponseWriter and original request.
 			h.ServeHTTP(ww, r)
 
-			// Capture a duration of the request
+			// Capture a duration of the request.
 			duration := time.Since(start)
 
 			Sugar.Infoln(
@@ -73,7 +73,7 @@ type (
 	// It intercepts Write and WriteHeader calls to record the necessary response data.
 	loggingResponseWriter struct {
 		http.ResponseWriter               // Embeds the original http.ResponseWriter.
-		responseData        *responseData // responseData - a pointer to responseData
+		responseData        *responseData // responseData is a pointer to responseData.
 	}
 )
 

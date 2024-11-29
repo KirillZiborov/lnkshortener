@@ -17,7 +17,7 @@ import (
 // Upon successful creation, it responds with a 201 Created status and the shortened URL.
 //
 // Possible error codes in response:
-// - 400 (Bad Request) if the original URL is empty.
+// - 400 (Bad Request) if the request body is empty.
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 409 (Conflict) if the shortURL already exists for the original URL.
 // - 500 (Internal Server Error) if the server fails.
@@ -71,12 +71,12 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 	}
 }
 
-// jsonRequest holds original URL in JSON format.
+// jsonRequest holds an original URL in JSON format.
 type jsonRequest struct {
 	URL string `json:"url"`
 }
 
-// JSONResponse holds short URL in JSON format.
+// JSONResponse holds a short URL in JSON format.
 type JSONResponse struct {
 	Result string `json:"result"`
 }

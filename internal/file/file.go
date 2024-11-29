@@ -241,7 +241,7 @@ func (store *FileStore) BatchUpdateDeleteFlag(urlID string, userID string) error
 	defer consumer.File.Close()
 
 	var updatedRecords []URLRecord
-	//Read all records, updates the deletion flag where applicable
+	//Read all records, updates the deletion flag where applicable.
 	for {
 		rec, err := consumer.ReadURLRecord()
 		if err != nil {

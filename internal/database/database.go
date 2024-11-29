@@ -75,7 +75,7 @@ func (store *DBStore) SaveURLRecord(urlRecord *file.URLRecord) (string, error) {
 		return "", err
 	}
 
-	// Check if the short URL already exists for the given original URL
+	// Check if the short URL already exists for the given original URL.
 	if c.RowsAffected() == 0 {
 		existingShortURL, err := store.GetShortURL(urlRecord.OriginalURL)
 		if err != nil {
@@ -146,7 +146,7 @@ func (store *DBStore) GetUserURLs(userID string) ([]file.URLRecord, error) {
 	}
 	defer rows.Close()
 
-	// Iterates through all found rows
+	// Iterates through all found rows.
 	for rows.Next() {
 		var shortURL, originalURL string
 

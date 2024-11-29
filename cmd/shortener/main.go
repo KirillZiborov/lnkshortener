@@ -78,7 +78,7 @@ func main() {
 		"addr", cfg.Address,
 	)
 
-	// Start the HTTP server at the adress fron the configuration.
+	// Start the HTTP server at the address from the configuration.
 	err = http.ListenAndServe(cfg.Address, router)
 	if err != nil {
 		logging.Sugar.Fatalw(err.Error(), "event", "start server")
@@ -111,10 +111,10 @@ func main() {
 func SetupRouter(cfg config.Config, store handlers.URLStore, db *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Apply global middleware
+	// Apply global middleware.
 	r.Use(logging.LoggingMiddleware())
 
-	// Define routes with associated handlers and middleware
+	// Define routes with associated handlers and middleware.
 	r.Post("/", gzip.Middleware(handlers.PostHandler(cfg, store)))
 	r.Post("/api/shorten", gzip.Middleware(handlers.APIShortenHandler(cfg, store)))
 	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(cfg, store)))
@@ -122,12 +122,12 @@ func SetupRouter(cfg config.Config, store handlers.URLStore, db *pgxpool.Pool) *
 	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(store)))
 	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(cfg, store)))
 
-	// Conditional route for database health check
+	// Conditional route for database health check.
 	if db != nil {
 		r.Get("/ping", handlers.PingDBHandler(db))
 	}
 
-	// Register pprof routes for profiling
+	// Register pprof routes for profiling.
 	registerPprof(r)
 
 	return r

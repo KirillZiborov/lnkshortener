@@ -92,14 +92,14 @@ func (c *CompressReader) Close() error {
 // and decompresses HTTP request bodies if they are Gzipped (indicated by the "Content-Encoding" header).
 func Middleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Preserve the original ResponseWriter
+		// Preserve the original ResponseWriter.
 		ow := w
 
 		// Check if the client accepts Gzip encoding
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 		if supportsGzip {
-			// Wrap the ResponseWriter with CompressWriter to handle Gzip compression
+			// Wrap the ResponseWriter with CompressWriter to handle Gzip compression.
 			cw := NewCompressWriter(w)
 			ow = cw
 			defer cw.Close()
@@ -109,7 +109,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 		contentEncoding := r.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 		if sendsGzip {
-			// Wrap the request body with CompressReader to handle Gzip decompression
+			// Wrap the request body with CompressReader to handle Gzip decompression.
 			cr, err := NewCompressReader(r.Body)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -119,7 +119,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 			defer cr.Close()
 		}
 
-		// Serve the HTTP request using the wrapped ResponseWriter and Request
+		// Serve the HTTP request using the wrapped ResponseWriter and Request.
 		h.ServeHTTP(ow, r)
 	}
 }
