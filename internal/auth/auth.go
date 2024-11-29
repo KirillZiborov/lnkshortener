@@ -80,7 +80,7 @@ func GetUserID(tokenString string) string {
 		return ""
 	}
 
-	fmt.Println("Token is valid")
+	// fmt.Println("Token is valid")
 	return claims.UserID
 }
 
