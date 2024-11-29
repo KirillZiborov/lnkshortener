@@ -11,7 +11,6 @@ import (
 
 // Sugar is a globally accessible SugaredLogger instance.
 // It provides a more ergonomic API for logging compared to the base Zap logger.
-
 var Sugar zap.SugaredLogger
 
 // Initialize sets up the global SugaredLogger using Zap's development configuration.
