@@ -8,7 +8,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -34,7 +33,7 @@ func main() {
 	// Initialize the logging system.
 	err := logging.Initialize()
 	if err != nil {
-		logging.Sugar.Fatalw("Internal logging error", err)
+		logging.Sugar.Errorw("Internal logging error", "error", err)
 	}
 
 	// Load the configuration.
@@ -48,15 +47,15 @@ func main() {
 
 		db, err = pgxpool.New(ctx, cfg.DBPath)
 		if err != nil {
-			logging.Sugar.Fatalw("Unable to connect to database", "error", err)
-			os.Exit(1)
+			logging.Sugar.Errorw("Unable to connect to database", "error", err)
+			return
 		}
 
 		// Create the URL table in the database if it doesn't exist.
 		err = database.CreateURLTable(ctx, db)
 		if err != nil {
-			logging.Sugar.Fatalw("Failed to create table", "error", err)
-			os.Exit(1)
+			logging.Sugar.Errorw("Failed to create table", "error", err)
+			return
 		}
 		defer db.Close()
 
@@ -81,7 +80,8 @@ func main() {
 	// Start the HTTP server at the address from the configuration.
 	err = http.ListenAndServe(cfg.Address, router)
 	if err != nil {
-		logging.Sugar.Fatalw(err.Error(), "event", "start server")
+		logging.Sugar.Errorw("Failed to start server", "error", err, "event", "start server")
+		return
 	}
 }
 
