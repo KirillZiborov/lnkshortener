@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"time"
@@ -24,12 +25,22 @@ import (
 var (
 	db       *pgxpool.Pool
 	urlStore handlers.URLStore
+
+	// Use go run -ldflags to set up build variables while compiling.
+	buildVersion = "N/A" // Build version
+	buildDate    = "N/A" // Build date
+	buildCommit  = "N/A" // Build commit
 )
 
 // main is the entrypoint of the URL shortener server.
 // It initializes configuration, logging and storage, sets up HTTP routes with middleware,
 // registers pprof handlers for profiling, and starts the HTTP server.
 func main() {
+	// Print build info.
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
+
 	// Initialize the logging system.
 	err := logging.Initialize()
 	if err != nil {
