@@ -6,9 +6,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -25,16 +25,26 @@ import (
 var (
 	db       *pgxpool.Pool
 	urlStore handlers.URLStore
+
+	// Use go run -ldflags to set up build variables while compiling.
+	buildVersion = "N/A" // Build version
+	buildDate    = "N/A" // Build date
+	buildCommit  = "N/A" // Build commit
 )
 
 // main is the entrypoint of the URL shortener server.
 // It initializes configuration, logging and storage, sets up HTTP routes with middleware,
 // registers pprof handlers for profiling, and starts the HTTP server.
 func main() {
+	// Print build info.
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
+
 	// Initialize the logging system.
 	err := logging.Initialize()
 	if err != nil {
-		logging.Sugar.Fatalw("Internal logging error", err)
+		logging.Sugar.Errorw("Internal logging error", "error", err)
 	}
 
 	// Load the configuration.
@@ -48,15 +58,15 @@ func main() {
 
 		db, err = pgxpool.New(ctx, cfg.DBPath)
 		if err != nil {
-			logging.Sugar.Fatalw("Unable to connect to database", "error", err)
-			os.Exit(1)
+			logging.Sugar.Errorw("Unable to connect to database", "error", err)
+			return
 		}
 
 		// Create the URL table in the database if it doesn't exist.
 		err = database.CreateURLTable(ctx, db)
 		if err != nil {
-			logging.Sugar.Fatalw("Failed to create table", "error", err)
-			os.Exit(1)
+			logging.Sugar.Errorw("Failed to create table", "error", err)
+			return
 		}
 		defer db.Close()
 
@@ -81,7 +91,8 @@ func main() {
 	// Start the HTTP server at the address from the configuration.
 	err = http.ListenAndServe(cfg.Address, router)
 	if err != nil {
-		logging.Sugar.Fatalw(err.Error(), "event", "start server")
+		logging.Sugar.Errorw("Failed to start server", "error", err, "event", "start server")
+		return
 	}
 }
 

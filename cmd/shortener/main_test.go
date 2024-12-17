@@ -23,7 +23,10 @@ func createTestFile(t *testing.T, fileName string) {
 	if err != nil {
 		t.Fatalf("Failed to create file: %v", err)
 	}
-	file.Close()
+
+	if err := file.Close(); err != nil {
+		t.Errorf("Failed to close file: %v", err)
+	}
 }
 
 func TestServer(t *testing.T) {
@@ -44,9 +47,9 @@ func TestServer(t *testing.T) {
 	r.Post("/api/shorten", handlers.APIShortenHandler(*cfg, urlStore))
 
 	type want struct {
-		code          int
-		body          string
 		headerMatches map[string]string
+		body          string
+		code          int
 	}
 
 	tests := []struct {
@@ -54,8 +57,8 @@ func TestServer(t *testing.T) {
 		method     string
 		url        string
 		body       string
-		want       want
 		setupStore func()
+		want       want
 	}{
 		{
 			name:   "POST 201",
@@ -169,7 +172,11 @@ func TestServer(t *testing.T) {
 
 			// Получаем и проверяем тело запроса
 			res := rw.Result()
-			defer res.Body.Close()
+			defer func() {
+				if err := res.Body.Close(); err != nil {
+					t.Errorf("Failed to close response body: %v", err)
+				}
+			}()
 			respBody, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
@@ -186,13 +193,19 @@ func TestServer(t *testing.T) {
 			if tc.method == http.MethodPost && rw.Code == http.StatusCreated && tc.url == "/" {
 				shortenedURL := rw.Body.String()
 
-				consumer, err := file.NewConsumer(cfg.FilePath)
+				var consumer *file.Consumer
+				consumer, err = file.NewConsumer(cfg.FilePath)
 				require.NoError(t, err)
-				defer consumer.File.Close()
+				defer func() {
+					if err = consumer.File.Close(); err != nil {
+						t.Errorf("Failed to close file: %v", err)
+					}
+				}()
 
 				var foundRecord *file.URLRecord
 				for {
-					record, err := consumer.ReadURLRecord()
+					var record *file.URLRecord
+					record, err = consumer.ReadURLRecord()
 					if err != nil {
 						break
 					}
@@ -215,7 +228,11 @@ func TestServer(t *testing.T) {
 
 				consumer, err := file.NewConsumer(cfg.FilePath)
 				require.NoError(t, err)
-				defer consumer.File.Close()
+				defer func() {
+					if err = consumer.File.Close(); err != nil {
+						t.Errorf("Failed to close file: %v", err)
+					}
+				}()
 
 				var foundRecord *file.URLRecord
 				for {
