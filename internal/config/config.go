@@ -25,6 +25,9 @@ type Config struct {
 	// to the PostgreSQL database. If empty, the application uses file storage.
 	// Example: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 	DBPath string
+	// EnableHTTPS defines connection type.
+	// If true, HTTPS is enabled.
+	EnableHTTPS bool
 }
 
 // NewConfig initializes and returns a new coniguration instance.
@@ -44,6 +47,8 @@ type Config struct {
 //	      URL storage file path (default "URLstorage.json")
 //	-d string
 //	      Database address (default "")
+//	-s bool
+//	      Connection type: HTTP or HTTPS (default false - HTTP)
 //
 // Environment Variables:
 //
@@ -51,6 +56,7 @@ type Config struct {
 //	BASE_URL             Overrides the -b flag.
 //	FILE_STORAGE_PATH    Overrides the -f flag.
 //	DATABASE_DSN         Overrides the -d flag.
+//	ENABLE_HTTPS         Overrides the -s flag.
 func NewConfig() *Config {
 	cfg := &Config{}
 
@@ -59,6 +65,7 @@ func NewConfig() *Config {
 	flag.StringVar(&cfg.BaseURL, "b", "http://localhost:8080", "BaseURL for shortened URLs")
 	flag.StringVar(&cfg.FilePath, "f", "", "URL storage file path")
 	flag.StringVar(&cfg.DBPath, "d", "", "Database address")
+	flag.BoolVar(&cfg.EnableHTTPS, "s", false, "Connection type")
 
 	// Parse the command-line flags.
 	flag.Parse()
@@ -96,5 +103,9 @@ func NewConfig() *Config {
 		cfg.DBPath = DBPath
 	}
 
+	// Override EnableHTTPS with the ENABLE_HTTPS environment variable if set.
+	if envHTTPS := os.Getenv("ENABLE_HTTPS"); envHTTPS == "true" {
+		cfg.EnableHTTPS = true
+	}
 	return cfg
 }
