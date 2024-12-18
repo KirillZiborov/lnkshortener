@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/KirillZiborov/lnkshortener/internal/cert"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
@@ -88,7 +89,22 @@ func main() {
 		"addr", cfg.Address,
 	)
 
-	// Start the HTTP server at the address from the configuration.
+	if cfg.EnableHTTPS {
+		logging.Sugar.Infow("Generating new TLS certificate")
+		// Generate certificate and key using the CreateCertificate function.
+		err = cert.CreateCertificate(cert.CertificateFilePath, cert.KeyFilePath)
+		if err != nil {
+			logging.Sugar.Errorw("Failed to create certificate", "error", err)
+			return
+		}
+
+		err = http.ListenAndServeTLS(cfg.Address, cert.CertificateFilePath, cert.KeyFilePath, router)
+		if err != nil {
+			logging.Sugar.Errorw("Failed to start HTTPS server", "error", err, "event", "start server")
+			return
+		}
+	}
+
 	err = http.ListenAndServe(cfg.Address, router)
 	if err != nil {
 		logging.Sugar.Errorw("Failed to start server", "error", err, "event", "start server")
