@@ -89,6 +89,7 @@ func main() {
 		"addr", cfg.Address,
 	)
 
+	// Start the HTTP server at the address from the configuration.
 	if cfg.EnableHTTPS {
 		logging.Sugar.Infow("Generating new TLS certificate")
 		// Generate certificate and key using the CreateCertificate function.
