@@ -9,11 +9,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/KirillZiborov/lnkshortener/internal/cert"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
@@ -79,8 +83,33 @@ func main() {
 		urlStore = file.NewFileStore(cfg.FilePath)
 	}
 
-	// Setup the router with all routes and middleware
+	// Setup the router with all routes and middleware.
 	router := SetupRouter(*cfg, urlStore, db)
+
+	// Create an HTTP server at the address from the configuration.
+	server := &http.Server{
+		Addr:    cfg.Address,
+		Handler: router,
+	}
+
+	// Use idleConnsClosed channel to notify main process about closing all connections.
+	idleConnsClosed := make(chan struct{})
+	// Create sigs channel to listen for syscall signals.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	// Start goroutine to handle interruptions.
+	go func() {
+		// Read from interruptions channel.
+		sig := <-sigs
+		logging.Sugar.Infof("Received signal: %s. Initiating shutdown.", sig)
+		// Shutdown the server gracefully.
+		if err := server.Shutdown(context.Background()); err != nil {
+			logging.Sugar.Errorf("Error during server shutdown: %v", err)
+		}
+		// Notify main process that all commections are handled and closed.
+		close(idleConnsClosed)
+		logging.Sugar.Info("Server shut down gracefully.")
+	}()
 
 	// Log the server start event with the address.
 	logging.Sugar.Infow(
@@ -88,12 +117,28 @@ func main() {
 		"addr", cfg.Address,
 	)
 
-	// Start the HTTP server at the address from the configuration.
-	err = http.ListenAndServe(cfg.Address, router)
-	if err != nil {
+	// Start the HTTP server.
+	if cfg.EnableHTTPS {
+		logging.Sugar.Infow("Generating new TLS certificate")
+		// Generate certificate and key using the CreateCertificate function.
+		err = cert.CreateCertificate(cert.CertificateFilePath, cert.KeyFilePath)
+		if err != nil {
+			logging.Sugar.Errorw("Failed to create certificate", "error", err)
+			return
+		}
+
+		err = server.ListenAndServeTLS(cert.CertificateFilePath, cert.KeyFilePath)
+	} else {
+		err = server.ListenAndServe()
+	}
+
+	if err != nil && err != http.ErrServerClosed {
 		logging.Sugar.Errorw("Failed to start server", "error", err, "event", "start server")
 		return
 	}
+
+	// Wait for the end of graceful shutdown.
+	<-idleConnsClosed
 }
 
 // SetupRouter initializes the Chi router with all routes and middlewares.
