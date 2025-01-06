@@ -15,7 +15,7 @@ import (
 
 // Config represents the configuration settings for the application.
 // It includes settings for the server address, base URL for shortened URLs,
-// file storage path, and database connection string.
+// file storage path, database connection string and trusted subnet CIDR.
 type Config struct {
 	// Address specifies the address on which the HTTP server listens.
 	// Example: "localhost:8080"
@@ -34,6 +34,9 @@ type Config struct {
 	// EnableHTTPS defines connection type.
 	// If true, HTTPS is enabled.
 	EnableHTTPS bool `json:"enable_https"`
+	// TrustedSubnet defines string representation of CIDR.
+	// Example: "192.168.1.0/24"
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 // NewConfig initializes and returns a new coniguration instance.
@@ -51,6 +54,7 @@ type Config struct {
 //	FILE_STORAGE_PATH    Overrides the -f flag.
 //	DATABASE_DSN         Overrides the -d flag.
 //	ENABLE_HTTPS         Overrides the -s flag.
+//	TRUSTED_SUBNET       Overrides the -t flag.
 //
 // 2. Command-Line Flags:
 //
@@ -64,6 +68,8 @@ type Config struct {
 //	      Database address (default "")
 //	-s bool
 //	      Connection type: HTTP or HTTPS (default false - HTTP)
+//	-t string
+//	      Truted subnet address (default "")
 //	-config string
 //	      Configuration file path
 //
@@ -79,23 +85,27 @@ type Config struct {
 //		  Analogue for environment variable DATABASE_DSN and -d flag
 //	"enable_https": bool
 //		  Analogue for environment variable ENABLE_HTTPS and -s flag
+//	"trusted_subnet": string
+//		  Analogue for environment variable TRUSTED_SUBNET and -t flag
 //
 // 4. Default Values:
 //
-//	Address:     "localhost:8080",
-//	BaseURL:     "http://Address",
-//	FilePath:    "URLstorage.json",
-//	DBPath:      "",
-//	EnableHTTPS: false
+//	Address:     	"localhost:8080",
+//	BaseURL:     	"http://Address",
+//	FilePath:    	"URLstorage.json",
+//	DBPath:      	"",
+//	EnableHTTPS: 	false,
+//	TrustedSubnet:  ""
 func NewConfig() *Config {
 	cfg := &Config{}
 	// Specify default configuration values.
 	currentCfg := &Config{
-		Address:     "localhost:8080",
-		BaseURL:     "",
-		FilePath:    "URLstorage.json",
-		DBPath:      "",
-		EnableHTTPS: false,
+		Address:       "localhost:8080",
+		BaseURL:       "",
+		FilePath:      "URLstorage.json",
+		DBPath:        "",
+		EnableHTTPS:   false,
+		TrustedSubnet: "",
 	}
 
 	// Define command-line flags and associate them with Config fields.
@@ -104,6 +114,7 @@ func NewConfig() *Config {
 	flag.StringVar(&cfg.FilePath, "f", "", "URL storage file path")
 	flag.StringVar(&cfg.DBPath, "d", "", "Database address")
 	flag.BoolVar(&cfg.EnableHTTPS, "s", false, "Connection type")
+	flag.StringVar(&cfg.TrustedSubnet, "t", "", "Trusted subnet CIDR")
 
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "Path to configuration file")
@@ -163,6 +174,14 @@ func NewConfig() *Config {
 	} else if !cfg.EnableHTTPS {
 		cfg.EnableHTTPS = currentCfg.EnableHTTPS
 	}
+
+	// Override TrustedSubnet with the TRUSTED_SUBNET environment variable if set.
+	if trustedSubnet := os.Getenv("TRUSTED_SUBNET"); trustedSubnet == "" {
+		cfg.TrustedSubnet = trustedSubnet
+	} else if cfg.TrustedSubnet == "" {
+		cfg.TrustedSubnet = currentCfg.TrustedSubnet
+	}
+
 	return cfg
 }
 

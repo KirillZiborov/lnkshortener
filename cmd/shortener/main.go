@@ -155,6 +155,7 @@ func main() {
 // - GET "/api/user/urls" : Retrieves all URLs created by the user.
 // - DELETE "/api/user/urls" : Deletes multiple URLs in batch.
 // - GET "/ping" : Health check endpoint to verify database connection.
+// - GET "/api/internal/stats" : Stats (number of URLs and unique users) check endpoint.
 //
 // Pprof Handlers: Provides profiling endpoints for performance analysis.
 // Profiling Endpoints:
@@ -176,6 +177,7 @@ func SetupRouter(cfg config.Config, store handlers.URLStore, db *pgxpool.Pool) *
 	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(cfg, store)))
 	r.Get("/{id}", gzip.Middleware(handlers.GetHandler(cfg, store)))
 	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(store)))
+	r.Get("/api/internal/stats", gzip.Middleware(handlers.GetStatsHandler(cfg, store)))
 	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(cfg, store)))
 
 	// Conditional route for database health check.

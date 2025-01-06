@@ -57,6 +57,20 @@ type URLStore interface {
 	// Returns:
 	// - An error if the update operation fails.
 	BatchUpdateDeleteFlag(urlID string, userID string) error
+
+	// GetURLsCount counts shortened URLs.
+	//
+	// Returns:
+	// - A number of shortened URLs.
+	// - An error if the query fails.
+	GetURLsCount() (int, error)
+
+	// GetUsersCount counts unique users.
+	//
+	// Returns:
+	// - A number of unique users.
+	// - An error if the query fails.
+	GetUsersCount() (int, error)
 }
 
 // generateID is a helper function to generate a shortened URL.

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -108,5 +110,73 @@ func GetUserURLsHandler(store URLStore) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(records)
+	}
+}
+
+// StatsResponse holds a number of shortened URLs and users in the service in JSON format.
+type StatsResponse struct {
+	// URLs is a number of URLs in the service.
+	URLs int `json:"urls"`
+
+	// Users is a number of unique users in the service.
+	Users int `json:"users"`
+}
+
+// GetStatsHandler checks if an IP address is in trusted subnet.
+// It returns server stats if so, else returns 403 status code.
+// It expects a GET request and responds with stats in JSON format.
+//
+// Possible error codes in response:
+// - 403 (Forbidden) if IP is not in trusted subnet or no trusted subnet specified.
+// - 500 (Internal Server Error) if the server fails.
+func GetStatsHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// If the trusted_subnet field is empty then deny access.
+		if cfg.TrustedSubnet == "" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		// Read IP from the X-Real-IP header.
+		clientIP := r.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			http.Error(w, "Forbidden: no X-Real-IP", http.StatusForbidden)
+			return
+		}
+
+		// Parse trusted_subnet field.
+		_, cidrNet, err := net.ParseCIDR(cfg.TrustedSubnet)
+		if err != nil {
+			http.Error(w, "Invalid trusted subnet", http.StatusInternalServerError)
+			return
+		}
+
+		// Parse and check IP.
+		ip := net.ParseIP(strings.TrimSpace(clientIP))
+		if ip == nil || !cidrNet.Contains(ip) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		// Get stats from storage.
+		urlsCount, err := store.GetURLsCount()
+		if err != nil {
+			http.Error(w, "Failed to get number of URLs", http.StatusInternalServerError)
+			return
+		}
+
+		usersCount, err := store.GetUsersCount()
+		if err != nil {
+			http.Error(w, "Failed to get number of users", http.StatusInternalServerError)
+			return
+		}
+
+		resp := StatsResponse{
+			URLs:  urlsCount,
+			Users: usersCount,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 	}
 }
