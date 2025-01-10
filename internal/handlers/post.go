@@ -5,12 +5,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/KirillZiborov/lnkshortener/internal/auth"
-	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
-	"github.com/KirillZiborov/lnkshortener/internal/file"
+	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 // PostHandler handles POST request containing the original URL and creates a short URL for it.
@@ -21,7 +19,7 @@ import (
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 409 (Conflict) if the shortURL already exists for the original URL.
 // - 500 (Internal Server Error) if the server fails.
-func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+func PostHandler(svc *logic.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Read and check request body for a non-empty original URL.
 		url, err := io.ReadAll(r.Body)
@@ -29,6 +27,7 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+		originalURL := string(url)
 
 		// Authentificate with an existing cookie or create a new one.
 		userID, err := auth.AuthPost(w, r)
@@ -36,21 +35,8 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// Generate a short URL.
-		id := generateID()
-		ourl := string(url)
-		shortenedURL := cfg.BaseURL + "/" + id
-
-		// Create a structure with information about the URL.
-		urlRecord := &file.URLRecord{
-			UUID:        strconv.Itoa(counter),
-			ShortURL:    shortenedURL,
-			OriginalURL: ourl,
-			UserUUID:    userID,
-		}
-
-		// Store the URL info in the file storage or database.
-		shortURL, err := store.SaveURLRecord(urlRecord)
+		// Call CreateShortURL from logic.
+		shortURL, err := svc.CreateShortURL(r.Context(), originalURL, userID)
 		if errors.Is(err, database.ErrorDuplicate) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusConflict)
@@ -61,13 +47,10 @@ func PostHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// Update the counter.
-		counter++
-
 		// Respond with the shortened URL.
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(shortenedURL))
+		w.Write([]byte(shortURL))
 	}
 }
 
@@ -90,7 +73,7 @@ type JSONResponse struct {
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 409 (Conflict) if the shortURL already exists for the original URL.
 // - 500 (Internal Server Error) if the server fails.
-func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+func APIShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRequest
 
@@ -108,24 +91,8 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// Generate a short URL.
-		id := generateID()
-		shortenedURL := cfg.BaseURL + "/" + id
-
-		res := JSONResponse{
-			Result: shortenedURL,
-		}
-
-		// Create a structure with information about the URL.
-		urlRecord := &file.URLRecord{
-			UUID:        strconv.Itoa(counter),
-			ShortURL:    shortenedURL,
-			OriginalURL: req.URL,
-			UserUUID:    userID,
-		}
-
-		// Store the URL info in the file storage or database.
-		shortURL, err := store.SaveURLRecord(urlRecord)
+		// Call to CreateShortURL from logic.
+		shortURL, err := svc.CreateShortURL(r.Context(), req.URL, userID)
 		if errors.Is(err, database.ErrorDuplicate) {
 			res := JSONResponse{
 				Result: shortURL,
@@ -145,10 +112,10 @@ func APIShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 			return
 		}
 
-		// Update the counter.
-		counter++
-
 		// Respond with the shortened URL.
+		res := JSONResponse{
+			Result: shortURL,
+		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -178,7 +145,7 @@ type BatchResponse struct {
 // - 400 (Bad Request) if the request body is empty.
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 500 (Internal Server Error) if the server fails.
-func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
+func BatchShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Authentificate with an existing cookie or create a new one.
 		userID, err := auth.AuthPost(w, r)
@@ -196,39 +163,30 @@ func BatchShortenHandler(cfg config.Config, store URLStore) http.HandlerFunc {
 		}
 		defer r.Body.Close()
 
+		// Convert batchRequests to internal logic structure BatchReq.
+		reqs := make([]logic.BatchReq, 0, len(batchRequests))
+		for _, br := range batchRequests {
+			reqs = append(reqs, logic.BatchReq{
+				CorrelationID: br.CorrelationID,
+				OriginalURL:   br.OriginalURL,
+			})
+		}
+
+		// Call to BatchShorten from logic.
+		results, err := svc.BatchShorten(r.Context(), userID, reqs)
+		if err != nil {
+			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+			return
+		}
+
 		// Initialize a slice of BatchResponse.
 		batchResponses := make([]BatchResponse, 0, len(batchRequests))
-
-		// Iterate through all sent URLs.
-		for _, req := range batchRequests {
-
-			// Generate a short URL.
-			id := generateID()
-			shortenedURL := cfg.BaseURL + "/" + id
-
-			// Create a structure with information about the URL.
-			urlRecord := &file.URLRecord{
-				UUID:        strconv.Itoa(counter),
-				ShortURL:    shortenedURL,
-				OriginalURL: req.OriginalURL,
-				UserUUID:    userID,
-			}
-
-			// Store the URL info in the file storage or database.
-			_, err := store.SaveURLRecord(urlRecord)
-			if err != nil {
-				http.Error(w, "Failed to save URL", http.StatusInternalServerError)
-				return
-			}
-
-			// Add BatchResponse with short URL to the batchResponses slice.
+		// Convert back to BatchResponse with JSON.
+		for _, r := range results {
 			batchResponses = append(batchResponses, BatchResponse{
-				CorrelationID: req.CorrelationID,
-				ShortURL:      shortenedURL,
+				CorrelationID: r.CorrelationID,
+				ShortURL:      r.ShortURL,
 			})
-
-			// Update the counter.
-			counter++
 		}
 
 		// Respond with the array of shortened URLs.

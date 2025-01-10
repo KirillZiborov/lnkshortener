@@ -1,0 +1,72 @@
+// shortener.proto
+syntax = "proto3";
+
+package shortener;
+option go_package = "github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto";
+
+message CreateURLRequest {
+  string original_url = 1;
+}
+
+message CreateURLResponse {
+  string short_url = 1;
+}
+
+message BatchShortenRequest {
+  message Item {
+    string correlation_id = 1;
+    string original_url   = 2;
+  }
+  repeated Item items = 1;
+}
+
+message BatchShortenResponse {
+  message Item {
+    string correlation_id = 1;
+    string short_url      = 2;
+  }
+  repeated Item items = 1;
+}
+
+message GetOriginalURLRequest {
+  string short_id = 1;
+}
+
+message GetOriginalURLResponse {
+  string original_url = 1;
+}
+
+message GetUserURLsRequest {
+  string user_id = 1;
+}
+
+message URLRecord {
+  string short_url = 1;
+  string original_url = 2;
+}
+
+message GetUserURLsResponse {
+  repeated URLRecord records = 1;
+}
+
+message GetStatsRequest {}
+
+message GetStatsResponse {
+  int64 urls  = 1;
+  int64 users = 2;
+}
+
+message BatchDeleteRequest {
+  repeated string short_ids = 1;
+}
+
+message BatchDeleteResponse {}
+
+service ShortenerService {
+  rpc CreateURL(CreateURLRequest) returns (CreateURLResponse);
+  rpc BatchShorten (BatchShortenRequest) returns (BatchShortenResponse);
+  rpc GetOriginalURL(GetOriginalURLRequest) returns (GetOriginalURLResponse);
+  rpc GetUserURLs(GetUserURLsRequest) returns (GetUserURLsResponse);
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+  rpc BatchDelete(BatchDeleteRequest) returns (BatchDeleteResponse);
+}

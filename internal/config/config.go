@@ -37,6 +37,10 @@ type Config struct {
 	// TrustedSubnet defines string representation of CIDR.
 	// Example: "192.168.1.0/24"
 	TrustedSubnet string `json:"trusted_subnet"`
+	// GRPCAddress specifies the address on which the gRPC server listens.
+	// Example: "localhost:9090".
+	// If empty, gRPC is disabled.
+	GRPCAddress string `json:"grpc_address"`
 }
 
 // NewConfig initializes and returns a new coniguration instance.
@@ -55,6 +59,7 @@ type Config struct {
 //	DATABASE_DSN         Overrides the -d flag.
 //	ENABLE_HTTPS         Overrides the -s flag.
 //	TRUSTED_SUBNET       Overrides the -t flag.
+//	GRPC_ADDRESS       	 Overrides the -g flag.
 //
 // 2. Command-Line Flags:
 //
@@ -70,6 +75,8 @@ type Config struct {
 //	      Connection type: HTTP or HTTPS (default false - HTTP)
 //	-t string
 //	      Truted subnet address (default "")
+//	-g string
+//	      Address of the gRPC server (default "", gRPC disabled)
 //	-config string
 //	      Configuration file path
 //
@@ -87,6 +94,8 @@ type Config struct {
 //		  Analogue for environment variable ENABLE_HTTPS and -s flag
 //	"trusted_subnet": string
 //		  Analogue for environment variable TRUSTED_SUBNET and -t flag
+//	"grpc_address": string
+//		  Analogue for environment variable GRPC_ADDRESS and -g flag
 //
 // 4. Default Values:
 //
@@ -95,7 +104,8 @@ type Config struct {
 //	FilePath:    	"URLstorage.json",
 //	DBPath:      	"",
 //	EnableHTTPS: 	false,
-//	TrustedSubnet:  ""
+//	TrustedSubnet:  "",
+//	GRPCAddress:    ""
 func NewConfig() *Config {
 	cfg := &Config{}
 	// Specify default configuration values.
@@ -106,6 +116,7 @@ func NewConfig() *Config {
 		DBPath:        "",
 		EnableHTTPS:   false,
 		TrustedSubnet: "",
+		GRPCAddress:   "",
 	}
 
 	// Define command-line flags and associate them with Config fields.
@@ -115,6 +126,7 @@ func NewConfig() *Config {
 	flag.StringVar(&cfg.DBPath, "d", "", "Database address")
 	flag.BoolVar(&cfg.EnableHTTPS, "s", false, "Connection type")
 	flag.StringVar(&cfg.TrustedSubnet, "t", "", "Trusted subnet CIDR")
+	flag.StringVar(&cfg.GRPCAddress, "g", "", "Address of the gRPC server")
 
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "Path to configuration file")
@@ -180,6 +192,14 @@ func NewConfig() *Config {
 		cfg.TrustedSubnet = trustedSubnet
 	} else if cfg.TrustedSubnet == "" {
 		cfg.TrustedSubnet = currentCfg.TrustedSubnet
+	}
+
+	// Override GRPCAddress with the GRPC_ADDRESS environment variable if set.
+	grpcAddress := os.Getenv("GRPC_ADDRESS")
+	if grpcAddress != "" {
+		cfg.GRPCAddress = grpcAddress
+	} else if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = currentCfg.GRPCAddress
 	}
 
 	return cfg

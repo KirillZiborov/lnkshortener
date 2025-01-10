@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -16,19 +17,24 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
 
 	"github.com/KirillZiborov/lnkshortener/internal/cert"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
+	"github.com/KirillZiborov/lnkshortener/internal/grpcapi"
+	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/interceptors"
+	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
 	"github.com/KirillZiborov/lnkshortener/internal/gzip"
 	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 	"github.com/KirillZiborov/lnkshortener/internal/logging"
+	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 var (
 	db       *pgxpool.Pool
-	urlStore handlers.URLStore
+	urlStore logic.URLStore
 
 	// Use go run -ldflags to set up build variables while compiling.
 	buildVersion = "N/A" // Build version
@@ -83,8 +89,38 @@ func main() {
 		urlStore = file.NewFileStore(cfg.FilePath)
 	}
 
+	service := logic.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
+
 	// Setup the router with all routes and middleware.
-	router := SetupRouter(*cfg, urlStore, db)
+	router := SetupRouter(service, db)
+
+	// Start the gRPC server if it is enabled.
+	if cfg.GRPCAddress != "" {
+		go func() {
+			lis, err := net.Listen("tcp", cfg.GRPCAddress)
+			if err != nil {
+				logging.Sugar.Errorw("Failed to listen gRPC", "error", err)
+				return
+			}
+			grpcServer := grpc.NewServer(
+				grpc.ChainUnaryInterceptor(
+					interceptors.AuthInterceptor(),
+					interceptors.IPInterceptor()))
+
+			shortenerServer := grpcapi.NewGRPCShortenerServer(&service)
+			proto.RegisterShortenerServiceServer(grpcServer, shortenerServer)
+
+			logging.Sugar.Infow(
+				"Starting gRPC server at",
+				"addr", cfg.GRPCAddress)
+			if err := grpcServer.Serve(lis); err != nil {
+				logging.Sugar.Errorw("gRPC server error", "error", err)
+			}
+		}()
+	}
 
 	// Create an HTTP server at the address from the configuration.
 	server := &http.Server{
@@ -113,7 +149,7 @@ func main() {
 
 	// Log the server start event with the address.
 	logging.Sugar.Infow(
-		"Starting server at",
+		"Starting HTTP server at",
 		"addr", cfg.Address,
 	)
 
@@ -165,20 +201,20 @@ func main() {
 // - "/debug/pprof/symbol" : pprof symbol.
 // - "/debug/pprof/trace" : pprof trace.
 // - "/debug/pprof/heap" : pprof heap.
-func SetupRouter(cfg config.Config, store handlers.URLStore, db *pgxpool.Pool) *chi.Mux {
+func SetupRouter(service logic.ShortenerService, db *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Apply global middleware.
 	r.Use(logging.LoggingMiddleware())
 
 	// Define routes with associated handlers and middleware.
-	r.Post("/", gzip.Middleware(handlers.PostHandler(cfg, store)))
-	r.Post("/api/shorten", gzip.Middleware(handlers.APIShortenHandler(cfg, store)))
-	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(cfg, store)))
-	r.Get("/{id}", gzip.Middleware(handlers.GetHandler(cfg, store)))
-	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(store)))
-	r.Get("/api/internal/stats", gzip.Middleware(handlers.GetStatsHandler(cfg, store)))
-	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(cfg, store)))
+	r.Post("/", gzip.Middleware(handlers.PostHandler(&service)))
+	r.Post("/api/shorten", gzip.Middleware(handlers.APIShortenHandler(&service)))
+	r.Post("/api/shorten/batch", gzip.Middleware(handlers.BatchShortenHandler(&service)))
+	r.Get("/{id}", gzip.Middleware(handlers.GetHandler(&service)))
+	r.Get("/api/user/urls", gzip.Middleware(handlers.GetUserURLsHandler(&service)))
+	r.Get("/api/internal/stats", gzip.Middleware(handlers.GetStatsHandler(&service)))
+	r.Delete("/api/user/urls", gzip.Middleware(handlers.BatchDeleteHandler(&service)))
 
 	// Conditional route for database health check.
 	if db != nil {

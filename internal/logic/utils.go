@@ -1,17 +1,26 @@
-package handlers
+// Package logic provides the business logic for managing shortened URLs.
+// It includes functionality to generate, store, retrieve, and delete URLs.
+package logic
 
 import (
 	"crypto/rand"
 	"encoding/base64"
 
+	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 )
 
 var (
-	// counter helps to store URLs UUIDs.
+	// Counter helps to store URLs UUIDs.
 	// It increments every time adding a new URL to the storage.
-	counter = 1
+	Counter = 1
 )
+
+// ShortenerService is the facade providing business logic for creating short URLs.
+type ShortenerService struct {
+	Store URLStore
+	Cfg   *config.Config
+}
 
 // URLStore defines the interface for URL storage operations.
 // It abstracts the underlying storage mechanism (database or file-based).
