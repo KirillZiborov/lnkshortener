@@ -3,8 +3,8 @@ package grpcapi
 import (
 	"context"
 
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/interceptors"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/interceptors"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -22,7 +22,7 @@ func (s *GRPCShortenerServer) BatchDelete(ctx context.Context, req *proto.BatchD
 		return nil, status.Error(codes.InvalidArgument, "Empty short_ids array")
 	}
 
-	// Call to BatchDeleteAsync from logic.
+	// Call to BatchDeleteAsync from app.
 	s.svc.BatchDeleteAsync(userID, shortIDs)
 
 	return &proto.BatchDeleteResponse{}, nil

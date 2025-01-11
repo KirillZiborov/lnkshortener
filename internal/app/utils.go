@@ -1,6 +1,6 @@
-// Package logic provides the business logic for managing shortened URLs.
+// Package app provides the business logic for managing shortened URLs.
 // It includes functionality to generate, store, retrieve, and delete URLs.
-package logic
+package app
 
 import (
 	"crypto/rand"

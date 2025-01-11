@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/interceptors"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/interceptors"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/proto"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -18,11 +18,11 @@ func (s *GRPCShortenerServer) GetOriginalURL(ctx context.Context, req *proto.Get
 		return nil, status.Error(codes.InvalidArgument, "no short_id provided")
 	}
 
-	// Call to GetShortURL from logic.
+	// Call to GetShortURL from app.
 	originalURL, err := s.svc.GetShortURL(ctx, shortID)
-	if errors.Is(err, logic.ErrURLNotFound) {
+	if errors.Is(err, app.ErrURLNotFound) {
 		return nil, status.Error(codes.NotFound, "URL not found")
-	} else if errors.Is(err, logic.ErrURLDeleted) {
+	} else if errors.Is(err, app.ErrURLDeleted) {
 		return nil, status.Error(codes.FailedPrecondition, "URL is deleted")
 	} else if err != nil {
 		return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
@@ -41,7 +41,7 @@ func (s *GRPCShortenerServer) GetUserURLs(ctx context.Context, req *proto.GetUse
 		return nil, status.Error(codes.Unauthenticated, "missing userID in context")
 	}
 
-	// Call to GetUserURLs from logic.
+	// Call to GetUserURLs from app.
 	records, err := s.svc.GetUserURLs(ctx, userID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get a list of user's URLs")
@@ -67,19 +67,19 @@ func (s *GRPCShortenerServer) GetStats(ctx context.Context, req *proto.GetStatsR
 		return nil, status.Error(codes.PermissionDenied, "No client IP")
 	}
 
-	// Call to CheckTrustedSubnet from logic.
+	// Call to CheckTrustedSubnet from app.
 	if err := s.svc.CheckTrustedSubnet(clientIP); err != nil {
 		switch {
-		case errors.Is(err, logic.ErrNoTrustedSubnet),
-			errors.Is(err, logic.ErrIPNotInSubnet),
-			errors.Is(err, logic.ErrNoClientIP):
+		case errors.Is(err, app.ErrNoTrustedSubnet),
+			errors.Is(err, app.ErrIPNotInSubnet),
+			errors.Is(err, app.ErrNoClientIP):
 			return nil, status.Error(codes.PermissionDenied, "Forbidden")
 		default:
 			return nil, status.Errorf(codes.Internal, "Invalid trusted subnet: %v", err)
 		}
 	}
 
-	// Call to GetStats from logic.
+	// Call to GetStats from app.
 	urls, users, err := s.svc.GetStats()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get stats: %v", err)

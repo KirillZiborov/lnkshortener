@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/KirillZiborov/lnkshortener/internal/auth"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/auth"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 )
 
 // BatchDeleteHandler handles the deletion of multiple shortened URLs for an authenticated user.
@@ -18,7 +18,7 @@ import (
 // - 400 (Bad Request) if the request body is empty.
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 500 (Internal Server Error) if the server fails.
-func BatchDeleteHandler(svc *logic.ShortenerService) http.HandlerFunc {
+func BatchDeleteHandler(svc *app.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		// Authenticate the user and retrieve the user ID.

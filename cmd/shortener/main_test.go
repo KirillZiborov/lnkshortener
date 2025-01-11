@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/handlers"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/handlers"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 func createTestFile(t *testing.T, fileName string) {
@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 
 	createTestFile(t, cfg.FilePath)
 
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}

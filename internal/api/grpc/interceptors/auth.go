@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/KirillZiborov/lnkshortener/internal/auth"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/auth"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -28,7 +28,7 @@ const (
 )
 
 // AuthInterceptor is a gRPC interceptor that handles users authentification.
-// It emulates HTTP cookie-based JWT logic.
+// It emulates HTTP cookie-based JWT app.
 func AuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,

@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/KirillZiborov/lnkshortener/internal/auth"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/auth"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 // PostHandler handles POST request containing the original URL and creates a short URL for it.
@@ -19,7 +19,7 @@ import (
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 409 (Conflict) if the shortURL already exists for the original URL.
 // - 500 (Internal Server Error) if the server fails.
-func PostHandler(svc *logic.ShortenerService) http.HandlerFunc {
+func PostHandler(svc *app.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Read and check request body for a non-empty original URL.
 		url, err := io.ReadAll(r.Body)
@@ -35,7 +35,7 @@ func PostHandler(svc *logic.ShortenerService) http.HandlerFunc {
 			return
 		}
 
-		// Call CreateShortURL from logic.
+		// Call CreateShortURL from app.
 		shortURL, err := svc.CreateShortURL(r.Context(), originalURL, userID)
 		if errors.Is(err, database.ErrorDuplicate) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -73,7 +73,7 @@ type JSONResponse struct {
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 409 (Conflict) if the shortURL already exists for the original URL.
 // - 500 (Internal Server Error) if the server fails.
-func APIShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
+func APIShortenHandler(svc *app.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRequest
 
@@ -91,7 +91,7 @@ func APIShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
 			return
 		}
 
-		// Call to CreateShortURL from logic.
+		// Call to CreateShortURL from app.
 		shortURL, err := svc.CreateShortURL(r.Context(), req.URL, userID)
 		if errors.Is(err, database.ErrorDuplicate) {
 			res := JSONResponse{
@@ -145,7 +145,7 @@ type BatchResponse struct {
 // - 400 (Bad Request) if the request body is empty.
 // - 401 (Unauthorized) if the authentification token is invalid.
 // - 500 (Internal Server Error) if the server fails.
-func BatchShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
+func BatchShortenHandler(svc *app.ShortenerService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Authentificate with an existing cookie or create a new one.
 		userID, err := auth.AuthPost(w, r)
@@ -164,15 +164,15 @@ func BatchShortenHandler(svc *logic.ShortenerService) http.HandlerFunc {
 		defer r.Body.Close()
 
 		// Convert batchRequests to internal logic structure BatchReq.
-		reqs := make([]logic.BatchReq, 0, len(batchRequests))
+		reqs := make([]app.BatchReq, 0, len(batchRequests))
 		for _, br := range batchRequests {
-			reqs = append(reqs, logic.BatchReq{
+			reqs = append(reqs, app.BatchReq{
 				CorrelationID: br.CorrelationID,
 				OriginalURL:   br.OriginalURL,
 			})
 		}
 
-		// Call to BatchShorten from logic.
+		// Call to BatchShorten from app.
 		results, err := svc.BatchShorten(r.Context(), userID, reqs)
 		if err != nil {
 			http.Error(w, "Failed to save URL", http.StatusInternalServerError)

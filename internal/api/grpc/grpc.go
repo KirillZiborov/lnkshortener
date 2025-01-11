@@ -4,19 +4,19 @@
 package grpcapi
 
 import (
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/proto"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 )
 
 // GRPCShortenerServer supports all neccessary server methods.
 type GRPCShortenerServer struct {
 	proto.UnimplementedShortenerServiceServer
-	svc *logic.ShortenerService
+	svc *app.ShortenerService
 }
 
 // NewGRPCShortenerServer creates a new instance of the GRPCShortenerServer struct with the provided service.
 // It initializes the service field of the GRPCShortenerServer struct with the given
 // service instance and returns a pointer to the newly created GRPCShortenerServer instance.
-func NewGRPCShortenerServer(svc *logic.ShortenerService) *GRPCShortenerServer {
+func NewGRPCShortenerServer(svc *app.ShortenerService) *GRPCShortenerServer {
 	return &GRPCShortenerServer{svc: svc}
 }

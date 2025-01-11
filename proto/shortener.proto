@@ -2,7 +2,7 @@
 syntax = "proto3";
 
 package shortener;
-option go_package = "github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto";
+option go_package = "internal/api/grpc/proto";
 
 message CreateURLRequest {
   string original_url = 1;

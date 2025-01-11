@@ -19,22 +19,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 
-	"github.com/KirillZiborov/lnkshortener/internal/cert"
+	grpcapi "github.com/KirillZiborov/lnkshortener/internal/api/grpc"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/interceptors"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/proto"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/cert"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/gzip"
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/handlers"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/interceptors"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
-	"github.com/KirillZiborov/lnkshortener/internal/gzip"
-	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 	"github.com/KirillZiborov/lnkshortener/internal/logging"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 var (
 	db       *pgxpool.Pool
-	urlStore logic.URLStore
+	urlStore app.URLStore
 
 	// Use go run -ldflags to set up build variables while compiling.
 	buildVersion = "N/A" // Build version
@@ -89,7 +89,7 @@ func main() {
 		urlStore = file.NewFileStore(cfg.FilePath)
 	}
 
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -201,7 +201,7 @@ func main() {
 // - "/debug/pprof/symbol" : pprof symbol.
 // - "/debug/pprof/trace" : pprof trace.
 // - "/debug/pprof/heap" : pprof heap.
-func SetupRouter(service logic.ShortenerService, db *pgxpool.Pool) *chi.Mux {
+func SetupRouter(service app.ShortenerService, db *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Apply global middleware.

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/interceptors"
+	"github.com/KirillZiborov/lnkshortener/internal/api/grpc/proto"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/database"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/interceptors"
-	"github.com/KirillZiborov/lnkshortener/internal/grpcapi/proto"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,7 @@ func (s *GRPCShortenerServer) CreateURL(ctx context.Context, req *proto.CreateUR
 		return nil, status.Error(codes.Unauthenticated, "no userID in context")
 	}
 
-	// Call CreateShortURL from logic.
+	// Call CreateShortURL from app.
 	shortURL, err := s.svc.CreateShortURL(ctx, req.OriginalUrl, userID)
 	if errors.Is(err, database.ErrorDuplicate) {
 		return &proto.CreateURLResponse{ShortUrl: shortURL}, status.Error(codes.AlreadyExists, "URL already exists")
@@ -45,15 +45,15 @@ func (s *GRPCShortenerServer) BatchShorten(ctx context.Context, req *proto.Batch
 	}
 
 	// Convert input to internal logic structure BatchReq.
-	var requests []logic.BatchReq
+	var requests []app.BatchReq
 	for _, item := range req.GetItems() {
-		requests = append(requests, logic.BatchReq{
+		requests = append(requests, app.BatchReq{
 			CorrelationID: item.CorrelationId,
 			OriginalURL:   item.OriginalUrl,
 		})
 	}
 
-	// Call to BatchShorten from logic.
+	// Call to BatchShorten from app.
 	results, err := s.svc.BatchShorten(ctx, userID, requests)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "BatchShorten error: %v", err)

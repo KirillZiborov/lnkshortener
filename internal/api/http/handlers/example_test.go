@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 // ExamplePostHandler demonstrates how to use the PostHandler.
@@ -17,7 +17,7 @@ func ExamplePostHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -47,7 +47,7 @@ func ExampleAPIShortenHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -83,7 +83,7 @@ func ExampleBatchShortenHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -122,7 +122,7 @@ func ExampleGetHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -148,7 +148,7 @@ func ExampleGetUserURLsHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -177,7 +177,7 @@ func ExampleBatchDeleteHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}

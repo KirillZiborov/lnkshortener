@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/logic"
 )
 
 func NewTestConfig() *config.Config {
@@ -24,7 +24,7 @@ func NewTestConfig() *config.Config {
 func BenchmarkPostHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -49,7 +49,7 @@ func BenchmarkPostHandler(b *testing.B) {
 func BenchmarkAPIShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
@@ -74,7 +74,7 @@ func BenchmarkAPIShortenHandler(b *testing.B) {
 func BenchmarkBatchShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	service := logic.ShortenerService{
+	service := app.ShortenerService{
 		Store: urlStore,
 		Cfg:   cfg,
 	}
