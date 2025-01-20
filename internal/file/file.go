@@ -286,3 +286,59 @@ func (store *FileStore) SaveAllRecords(records []URLRecord) error {
 
 	return nil
 }
+
+// GetURLsCount counts shortened URLs in the file.
+//
+// Returns:
+// - A number of shortened URLs.
+// - An error if reading fails.
+func (store *FileStore) GetURLsCount() (int, error) {
+	consumer, err := NewConsumer(store.fileName)
+	if err != nil {
+		return 0, err
+	}
+	defer consumer.File.Close()
+
+	count := 0
+	for {
+		_, err := consumer.ReadURLRecord()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return 0, err
+		}
+		count++
+	}
+
+	return count, nil
+}
+
+// GetUsersCount counts unique users
+// by reading all records in the file and collecting userUUID.
+//
+// Returns:
+// - A number of unique users.
+// - An error if reading fails.
+func (store *FileStore) GetUsersCount() (int, error) {
+	consumer, err := NewConsumer(store.fileName)
+	if err != nil {
+		return 0, err
+	}
+	defer consumer.File.Close()
+
+	usersSet := make(map[string]struct{})
+	for {
+		rec, err := consumer.ReadURLRecord()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return 0, err
+		}
+
+		usersSet[rec.UserUUID] = struct{}{}
+	}
+
+	return len(usersSet), nil
+}

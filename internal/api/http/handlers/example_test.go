@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 )
 
@@ -16,9 +17,13 @@ func ExamplePostHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := PostHandler(*cfg, urlStore)
+	handler := PostHandler(&service)
 
 	// Create HTTP request.
 	requestBody := strings.NewReader("https://ya.ru")
@@ -42,9 +47,13 @@ func ExampleAPIShortenHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := APIShortenHandler(*cfg, urlStore)
+	handler := APIShortenHandler(&service)
 
 	// Prepare request data.
 	requestData := jsonRequest{
@@ -74,9 +83,13 @@ func ExampleBatchShortenHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := BatchShortenHandler(*cfg, urlStore)
+	handler := BatchShortenHandler(&service)
 
 	// Prepare request data.
 	batchRequest := []BatchRequest{
@@ -109,9 +122,13 @@ func ExampleGetHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := GetHandler(*cfg, urlStore)
+	handler := GetHandler(&service)
 
 	// Prepare HTTP request.
 	req := httptest.NewRequest(http.MethodGet, "/123", nil)
@@ -131,9 +148,13 @@ func ExampleGetUserURLsHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := GetUserURLsHandler(urlStore)
+	handler := GetUserURLsHandler(&service)
 
 	// Prepare HTTP request.
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
@@ -156,9 +177,13 @@ func ExampleBatchDeleteHandler() {
 	// Initialize the configuration.
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
 
 	// Initialize the handler.
-	handler := BatchDeleteHandler(*cfg, urlStore)
+	handler := BatchDeleteHandler(&service)
 
 	// Prepare request data.
 	urls := []string{"/abc", "/def", "yaya"}

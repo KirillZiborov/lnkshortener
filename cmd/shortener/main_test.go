@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/KirillZiborov/lnkshortener/internal/api/http/handlers"
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
-	"github.com/KirillZiborov/lnkshortener/internal/handlers"
 )
 
 func createTestFile(t *testing.T, fileName string) {
@@ -40,11 +41,16 @@ func TestServer(t *testing.T) {
 
 	createTestFile(t, cfg.FilePath)
 
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
+
 	r := chi.NewRouter()
 
-	r.Post("/", handlers.PostHandler(*cfg, urlStore))
-	r.Get("/{id}", handlers.GetHandler(*cfg, urlStore))
-	r.Post("/api/shorten", handlers.APIShortenHandler(*cfg, urlStore))
+	r.Post("/", handlers.PostHandler(&service))
+	r.Get("/{id}", handlers.GetHandler(&service))
+	r.Post("/api/shorten", handlers.APIShortenHandler(&service))
 
 	type want struct {
 		headerMatches map[string]string

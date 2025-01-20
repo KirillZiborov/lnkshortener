@@ -1,17 +1,26 @@
-package handlers
+// Package app provides the business logic for managing shortened URLs.
+// It includes functionality to generate, store, retrieve, and delete URLs.
+package app
 
 import (
 	"crypto/rand"
 	"encoding/base64"
 
+	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 )
 
 var (
-	// counter helps to store URLs UUIDs.
+	// Counter helps to store URLs UUIDs.
 	// It increments every time adding a new URL to the storage.
-	counter = 1
+	Counter = 1
 )
+
+// ShortenerService is the facade providing business logic for creating short URLs.
+type ShortenerService struct {
+	Store URLStore
+	Cfg   *config.Config
+}
 
 // URLStore defines the interface for URL storage operations.
 // It abstracts the underlying storage mechanism (database or file-based).
@@ -57,6 +66,20 @@ type URLStore interface {
 	// Returns:
 	// - An error if the update operation fails.
 	BatchUpdateDeleteFlag(urlID string, userID string) error
+
+	// GetURLsCount counts shortened URLs.
+	//
+	// Returns:
+	// - A number of shortened URLs.
+	// - An error if the query fails.
+	GetURLsCount() (int, error)
+
+	// GetUsersCount counts unique users.
+	//
+	// Returns:
+	// - A number of unique users.
+	// - An error if the query fails.
+	GetUsersCount() (int, error)
 }
 
 // generateID is a helper function to generate a shortened URL.

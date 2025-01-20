@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/KirillZiborov/lnkshortener/internal/app"
 	"github.com/KirillZiborov/lnkshortener/internal/config"
 	"github.com/KirillZiborov/lnkshortener/internal/file"
 )
@@ -23,7 +24,11 @@ func NewTestConfig() *config.Config {
 func BenchmarkPostHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	handler := PostHandler(*cfg, urlStore)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
+	handler := PostHandler(&service)
 
 	requestBody := []byte("https://ya.ru")
 
@@ -44,7 +49,11 @@ func BenchmarkPostHandler(b *testing.B) {
 func BenchmarkAPIShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	handler := APIShortenHandler(*cfg, urlStore)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
+	handler := APIShortenHandler(&service)
 
 	requestBody := []byte(`{"url":"https://ya.ru"}`)
 
@@ -65,7 +74,11 @@ func BenchmarkAPIShortenHandler(b *testing.B) {
 func BenchmarkBatchShortenHandler(b *testing.B) {
 	cfg := NewTestConfig()
 	urlStore := file.NewFileStore(cfg.FilePath)
-	handler := BatchShortenHandler(*cfg, urlStore)
+	service := app.ShortenerService{
+		Store: urlStore,
+		Cfg:   cfg,
+	}
+	handler := BatchShortenHandler(&service)
 
 	batchRequest := []BatchRequest{
 		{OriginalURL: "https://ya1.ru", CorrelationID: "cor1"},

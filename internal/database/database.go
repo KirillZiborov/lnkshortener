@@ -176,3 +176,35 @@ func (store *DBStore) BatchUpdateDeleteFlag(urlID string, userID string) error {
 	_, err := store.db.Exec(context.Background(), query, urlID, userID)
 	return err
 }
+
+// GetURLsCount counts shortened URLs.
+//
+// Returns:
+// - A number of shortened URLs.
+// - An error if the query fails.
+func (store *DBStore) GetURLsCount() (int, error) {
+	var count int
+
+	query := `SELECT COUNT(*) FROM urls`
+	err := store.db.QueryRow(context.Background(), query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetUsersCount counts unique users.
+//
+// Returns:
+// - A number of unique users.
+// - An error if the query fails.
+func (store *DBStore) GetUsersCount() (int, error) {
+	var count int
+
+	query := `SELECT COUNT(DISTINCT user_id) FROM urls`
+	err := store.db.QueryRow(context.Background(), query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
